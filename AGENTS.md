@@ -12,6 +12,7 @@
 
 ## Build, Test, and Development Commands
 - `python main.py` runs the current entry point (prints a placeholder message).
+- Use `uv` as the project manager; install dependencies with `uv add` by default.
 - There is no build pipeline yet. When OCR logic is added, prefer a CLI entry point (e.g., `python -m neepwordextractor ...`).
 
 ## Coding Style & Naming Conventions

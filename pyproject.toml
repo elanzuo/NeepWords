@@ -4,4 +4,13 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "ocrmac>=1.0.1",
+    "pillow>=12.1.0",
+    "pypdfium2>=5.3.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
