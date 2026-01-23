@@ -9,7 +9,9 @@ import pypdfium2 as pdfium
 from PIL import Image
 
 
-def render_pdf_pages(pdf_path: Path, start_page: int, end_page: int, dpi: int = 300) -> List[Image.Image]:
+def render_pdf_pages(
+    pdf_path: Path, start_page: int, end_page: int, dpi: int = 300
+) -> List[Image.Image]:
     """Render a 1-based inclusive page range to PIL images."""
     if start_page < 1 or end_page < 1:
         raise ValueError("Page numbers must be 1-based positive integers.")
@@ -25,7 +27,8 @@ def render_pdf_pages(pdf_path: Path, start_page: int, end_page: int, dpi: int = 
                 raise ValueError(f"Page index out of range: {index + 1}")
             page = pdf[index]
             try:
-                pil_image = page.render(scale=dpi / 72).to_pil()
+                # scale can be float in pypdfium2, suppressing strict int check
+                pil_image = page.render(scale=dpi / 72).to_pil()  # type: ignore[arg-type]
             finally:
                 page.close()
             images.append(pil_image)
@@ -34,7 +37,9 @@ def render_pdf_pages(pdf_path: Path, start_page: int, end_page: int, dpi: int = 
         pdf.close()
 
 
-def iter_pdf_pages(pdf_path: Path, start_page: int, end_page: int, dpi: int = 300) -> Iterable[Image.Image]:
+def iter_pdf_pages(
+    pdf_path: Path, start_page: int, end_page: int, dpi: int = 300
+) -> Iterable[Image.Image]:
     """Yield PIL images for a 1-based inclusive page range."""
     for image in render_pdf_pages(pdf_path, start_page, end_page, dpi=dpi):
         yield image

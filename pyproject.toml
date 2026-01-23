@@ -14,3 +14,68 @@ dependencies = [
 dev = [
     "pytest>=9.0.2",
 ]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+include = ["src/**/*.py", "tests/**/*.py", "examples/**/*.py"]
+
+[tool.ruff.lint]
+# 只选择最基本的错误检查
+select = [
+    "E9",     # 语法错误
+    "F",      # pyflakes (未使用变量、未定义变量等)
+    "I",      # isort (导入排序)
+]
+
+# 忽略一些常见但无害的问题
+ignore = [
+    "F401",   # 未使用的导入 (很常见)
+    "F841",   # 未使用的变量 (有时是故意的)
+    "E402",   # 导入不在文件顶部 (有时需要)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# 测试文件更宽松
+"tests/**" = [
+    "E",     # 所有 pycodestyle 错误
+    "F401",  # 未使用的导入 (测试常用)
+    "F811",  # 重复定义 (fixture 相关)
+    "F841",  # 未使用的变量
+]
+
+# 示例代码更宽松
+"examples/**" = [
+    "E",     # 所有 pycodestyle 错误
+    "F401",  # 未使用的导入
+    "F841",  # 未使用的变量
+]
+
+# 主入口文件宽松
+"**/__main__.py" = [
+    "E402",  # 导入位置
+    "F401",  # 未使用的导入
+]
+
+# 配置文件宽松
+"**/conftest.py" = [
+    "F401",  # 未使用的导入
+    "F811",  # 重复定义
+]
+
+[tool.ruff.lint.isort]
+# 导入排序宽松配置
+known-first-party = ["leduc", "happyfive"]
+split-on-trailing-comma = false
+force-single-line = false
+
+[tool.basedpyright]
+include = ["src"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13"
+typeCheckingMode = "basic"
+
+# 将具体的规则细化
+reportMissingTypeStubs = false
+reportUnknownMemberType = false       # 避免第三方库返回 Any 时报错

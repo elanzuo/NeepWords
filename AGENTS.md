@@ -5,13 +5,14 @@
 - Design doc: `docs/design.md`.
 
 ## Project Structure & Module Organization
-- `main.py` contains the current entry point (a placeholder main function).
+- `src/neepwordextractor/main.py` contains the CLI entry point.
 - `pyproject.toml` defines project metadata and the required Python version (>= 3.13).
 - `resources/` is intended for input assets (e.g., source PDFs, sample images) and derived artifacts.
 - `tmp.txt` is a scratch file; do not depend on it for production behavior.
 
 ## Build, Test, and Development Commands
-- `python main.py` runs the current entry point (prints a placeholder message).
+- `python -m neepwordextractor --help` shows CLI usage.
+- `uv run pytest -q` runs the test suite.
 - Use `uv` as the project manager; install dependencies with `uv add` by default.
 - There is no build pipeline yet. When OCR logic is added, prefer a CLI entry point (e.g., `python -m neepwordextractor ...`).
 
@@ -22,7 +23,7 @@
 - No formatter or linter is configured yet; if added, document it here.
 
 ## Testing Guidelines
-- No test framework is set up yet. If tests are added, use `pytest` and place them under `tests/`.
+- Tests use `pytest` and live under `tests/`.
 - Name tests as `test_<module>_<behavior>.py` and keep OCR-dependent tests minimal or use fixtures.
 
 ## Commit & Pull Request Guidelines
