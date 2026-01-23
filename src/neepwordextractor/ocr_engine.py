@@ -61,5 +61,8 @@ def run_ocr(
     if unit is None:
         raw_annotations = ocr_instance.recognize()
     else:
-        raw_annotations = ocr_instance.recognize(unit=unit)  # type: ignore[call-arg]
+        try:
+            raw_annotations = ocr_instance.recognize(unit=unit)  # type: ignore[call-arg]
+        except TypeError:
+            raw_annotations = ocr_instance.recognize()
     return _normalize_annotations(raw_annotations)

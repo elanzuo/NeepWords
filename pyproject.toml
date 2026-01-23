@@ -10,6 +10,16 @@ dependencies = [
     "pypdfium2>=5.3.0",
 ]
 
+[project.scripts]
+neepwordextractor = "neepwordextractor.main:main"
+
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = true
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",

@@ -64,3 +64,23 @@ def test_run_ocr_livetext_omits_recognition_level(monkeypatch):
     ocr_engine.run_ocr(image, framework="livetext")
     assert _FakeOCR.last_kwargs is not None
     assert "recognition_level" not in _FakeOCR.last_kwargs
+
+
+def test_run_ocr_falls_back_when_unit_unsupported(monkeypatch):
+    class _FakeOCRNoUnit(_FakeOCR):
+        def recognize(self, unit=None):
+            if unit is not None:
+                raise TypeError("unexpected keyword argument 'unit'")
+            return super().recognize(unit=None)
+
+    class _FakeModuleNoUnit:
+        OCR = _FakeOCRNoUnit
+
+    def _fake_loader():
+        return _FakeModuleNoUnit
+
+    monkeypatch.setattr(ocr_engine, "_load_ocrmac", _fake_loader)
+
+    image = Image.new("RGB", (10, 10))
+    annotations = ocr_engine.run_ocr(image, unit="line")
+    assert annotations[0].text == "alpha"
