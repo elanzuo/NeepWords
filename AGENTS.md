@@ -10,6 +10,13 @@
 - `resources/` is intended for input assets (e.g., source PDFs, sample images) and derived artifacts.
 - `tmp.txt` is a scratch file; do not depend on it for production behavior.
 
+## Functional Flow (Current)
+- PDF -> image rendering -> crop/split -> OCR -> normalize/expand -> spellcheck -> output.
+- Spellcheck: Cocoa `NSSpellChecker` by default. Failures go to `output/rejected_words.csv` unless configured to write into DB.
+- Outputs:
+  - SQLite: `output/words.sqlite3` table `words` (`word/norm/source/ipa/frequency/created_at/updated_at`).
+  - CSV (optional): `output/rejected_words.csv` columns `word/reason/source/page/column/line`.
+
 ## Build, Test, and Development Commands
 - `python -m neepwordextractor --help` shows CLI usage.
 - `uv run pytest -q` runs the test suite.

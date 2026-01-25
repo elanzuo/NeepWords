@@ -64,7 +64,14 @@ def expand_variants(line: str) -> list[str]:
             if expanded and expanded not in seen:
                 variants.append(expanded)
                 seen.add(expanded)
-    return variants
+    if not variants:
+        return variants
+    variant_set = set(variants)
+    return [
+        variant
+        for variant in variants
+        if not (variant.endswith("ou") and f"{variant}r" in variant_set)
+    ]
 
 
 def _expand_parentheses(word: str) -> list[str]:
@@ -78,6 +85,8 @@ def _expand_parentheses(word: str) -> list[str]:
     optional = word[start + 1 : end]
     suffix = word[end + 1 :]
     without_optional = f"{prefix}{suffix}"
+    if not optional:
+        return [without_optional]
     with_optional = f"{prefix}{optional}{suffix}"
     expanded: list[str] = []
     for candidate in (without_optional, with_optional):

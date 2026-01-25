@@ -46,7 +46,11 @@
 
 ### 5) 输出与校验
 - 主要输出：`output/words.sqlite3`（表 `words`，含 `word/norm/source/ipa/frequency/created_at/updated_at`）
-- 统计信息：总词数、重复词数、每页词数
+- 拼写检查：默认启用 macOS Cocoa (`NSSpellChecker`) 过滤
+  - 通过检查的单词进入 SQLite
+  - 未通过默认写入 `output/rejected_words.csv`（列：`word/reason/source/page/column/line`）
+  - 可通过 CLI 关闭检查或选择未通过写入数据库
+- 统计信息：总词数、重复词数、每页词数（基于通过检查的词）
 
 ### 6) 可视化调试（Visual Debugging）
 - CLI 增加 `--debug` 或 `--preview` 参数

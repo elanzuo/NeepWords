@@ -34,6 +34,8 @@ def extract_words(
     language_preference: Sequence[str] | None = None,
     framework: str = "vision",
     ocr_unit: str = "line",
+    spellcheck: bool = True,
+    spellcheck_rejected: str = "csv",
 ) -> dict[str, object]:
     """Run the end-to-end extraction pipeline and return stats."""
     words: list[dict[str, object]] = []
@@ -77,4 +79,9 @@ def extract_words(
                         }
                     )
 
-    return write_outputs(words, output_dir)
+    return write_outputs(
+        words,
+        output_dir,
+        spellcheck=spellcheck,
+        spellcheck_rejected=spellcheck_rejected,
+    )

@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "ocrmac>=1.0.1",
     "pillow>=12.1.0",
+    "pyobjc-framework-cocoa>=12.1",
     "pypdfium2>=5.3.0",
 ]
 
