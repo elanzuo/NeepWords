@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import json
+import re
+import sqlite3
 from collections import Counter
 from pathlib import Path
 from typing import Iterable, Mapping
@@ -18,6 +19,11 @@ def _normalize_words(
         else:
             normalized.append(dict(item))
     return normalized
+
+
+def _normalize_word_value(word: str) -> str:
+    normalized = re.sub(r"\s+", " ", word.strip())
+    return normalized.lower()
 
 
 def _compute_stats(words: list[dict[str, object]]) -> dict[str, object]:
@@ -43,21 +49,51 @@ def _compute_stats(words: list[dict[str, object]]) -> dict[str, object]:
 def write_outputs(
     words: Iterable[str | Mapping[str, object]], output_dir: Path
 ) -> dict[str, object]:
-    """Write words to output files and return stats."""
+    """Write words to a sqlite database and return stats."""
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
     normalized = _normalize_words(words)
-    words_txt = output_path / "words.txt"
-    words_json = output_path / "words.json"
+    words_db = output_path / "words.sqlite3"
 
-    with words_txt.open("w", encoding="utf-8") as handle:
+    with sqlite3.connect(words_db) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS words (
+                id INTEGER PRIMARY KEY,
+                word TEXT NOT NULL,
+                norm TEXT NOT NULL UNIQUE,
+                source TEXT,
+                ipa TEXT,
+                frequency INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+            )
+            """
+        )
+        rows: list[tuple[str, str, str | None, str | None]] = []
         for item in normalized:
             word = str(item.get("word", "")).strip()
-            if word:
-                handle.write(f"{word}\n")
+            if not word:
+                continue
+            norm = _normalize_word_value(word)
+            source_value = item.get("source")
+            source = str(source_value).strip() if source_value is not None else None
+            ipa_value = item.get("ipa")
+            ipa = str(ipa_value).strip() if ipa_value is not None else None
+            rows.append((word, norm, source, ipa))
 
-    with words_json.open("w", encoding="utf-8") as handle:
-        json.dump(normalized, handle, ensure_ascii=False, indent=2)
+        conn.executemany(
+            """
+            INSERT INTO words (word, norm, source, ipa)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(norm) DO UPDATE SET
+                source=excluded.source,
+                ipa=excluded.ipa,
+                frequency=words.frequency + 1,
+                updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+            """,
+            rows,
+        )
 
     return _compute_stats(normalized)

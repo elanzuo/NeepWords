@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from .cleaner import normalize_text
+from .cleaner import expand_variants, normalize_text
 from .image_proc import apply_enhancements, crop_image, save_debug_images, split_columns
 from .ocr_engine import OCRAnnotation, run_ocr
 from .output import write_outputs
@@ -64,14 +64,17 @@ def extract_words(
             )
             raw_text = _annotations_to_text(annotations)
             cleaned_lines = normalize_text(raw_text)
-            for line_index, word in enumerate(cleaned_lines, start=1):
-                words.append(
-                    {
-                        "word": word,
-                        "page": page_number,
-                        "column": column_label,
-                        "line": line_index,
-                    }
-                )
+            for line_index, line in enumerate(cleaned_lines, start=1):
+                source = f"{pdf_path.stem}-{page_number}-{column_label}-{line_index}-{line}"
+                for word in expand_variants(line):
+                    words.append(
+                        {
+                            "word": word,
+                            "source": source,
+                            "page": page_number,
+                            "column": column_label,
+                            "line": line_index,
+                        }
+                    )
 
     return write_outputs(words, output_dir)

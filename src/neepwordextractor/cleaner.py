@@ -52,3 +52,34 @@ def normalize_text(text: str) -> list[str]:
         if normalized and not _is_noise(normalized):
             cleaned.append(normalized)
     return cleaned
+
+
+def expand_variants(line: str) -> list[str]:
+    """Expand slash and parentheses variants into individual word entries."""
+    parts = [part.strip() for part in line.split(" / ") if part.strip()]
+    variants: list[str] = []
+    seen: set[str] = set()
+    for part in parts:
+        for expanded in _expand_parentheses(part):
+            if expanded and expanded not in seen:
+                variants.append(expanded)
+                seen.add(expanded)
+    return variants
+
+
+def _expand_parentheses(word: str) -> list[str]:
+    start = word.find("(")
+    if start == -1:
+        return [word]
+    end = word.find(")", start + 1)
+    if end == -1:
+        return [word.replace("(", "").replace(")", "")]
+    prefix = word[:start]
+    optional = word[start + 1 : end]
+    suffix = word[end + 1 :]
+    without_optional = f"{prefix}{suffix}"
+    with_optional = f"{prefix}{optional}{suffix}"
+    expanded: list[str] = []
+    for candidate in (without_optional, with_optional):
+        expanded.extend(_expand_parentheses(candidate))
+    return expanded

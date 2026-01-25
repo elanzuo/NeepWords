@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Overview & Docs
-- Goal: Extract vocabulary from specified page ranges of the scanned 《考研英语一考试大纲.pdf》.
+- Goal: Extract vocabulary from specified page ranges of the scanned 《考研考试大纲.pdf》.
 - Design doc: `docs/design.md`.
 
 ## Project Structure & Module Organization

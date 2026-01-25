@@ -39,13 +39,13 @@
 ### 4) 文本清洗与规范化
 - 白名单字符：仅保留 `[a-zA-Z\\-()\\/ ]`，剔除页码或中文残留
 - 原始格式优先：保留 `gaol / jail` 之类的同义词格式，仅规范空格
+- 变体展开：处理 `word1 / word2` 与 `stor(e)y`，生成多条词条
 - 连字符处理：检查行尾连字符（Hyphenation），尽量避免跨行误拼
 - 多空格合并为单空格
 - 过滤噪声行（过短、非字母为主）
 
 ### 5) 输出与校验
-- 主要输出：`output/words.txt`（一行一个词）
-- 可选输出：`output/words.json`（含 `{word, page, column, line}`）
+- 主要输出：`output/words.sqlite3`（表 `words`，含 `word/norm/source/ipa/frequency/created_at/updated_at`）
 - 统计信息：总词数、重复词数、每页词数
 
 ### 6) 可视化调试（Visual Debugging）

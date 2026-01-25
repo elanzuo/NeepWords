@@ -45,8 +45,32 @@ def test_extract_words_wires_pipeline(tmp_path, monkeypatch):
     assert stats == {"total_count": 4}
     assert saved["called"] is True
     assert captured["words"] == [
-        {"word": "alpha", "page": 1, "column": "L", "line": 1},
-        {"word": "beta", "page": 1, "column": "L", "line": 2},
-        {"word": "alpha", "page": 1, "column": "R", "line": 1},
-        {"word": "beta", "page": 1, "column": "R", "line": 2},
+        {
+            "word": "alpha",
+            "source": "dummy-1-L-1-alpha",
+            "page": 1,
+            "column": "L",
+            "line": 1,
+        },
+        {
+            "word": "beta",
+            "source": "dummy-1-L-2-beta",
+            "page": 1,
+            "column": "L",
+            "line": 2,
+        },
+        {
+            "word": "alpha",
+            "source": "dummy-1-R-1-alpha",
+            "page": 1,
+            "column": "R",
+            "line": 1,
+        },
+        {
+            "word": "beta",
+            "source": "dummy-1-R-2-beta",
+            "page": 1,
+            "column": "R",
+            "line": 2,
+        },
     ]
