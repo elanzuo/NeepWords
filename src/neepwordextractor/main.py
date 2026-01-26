@@ -6,13 +6,14 @@ import argparse
 from pathlib import Path
 
 from .core import extract_words
+from .output import add_words_to_db
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Extract words from a scanned PDF.")
-    parser.add_argument("--pdf", required=True, help="Path to the source PDF.")
-    parser.add_argument("--start-page", type=int, required=True, help="Start page (1-based).")
-    parser.add_argument("--end-page", type=int, required=True, help="End page (1-based).")
+    parser.add_argument("--pdf", help="Path to the source PDF.")
+    parser.add_argument("--start-page", type=int, help="Start page (1-based).")
+    parser.add_argument("--end-page", type=int, help="End page (1-based).")
     parser.add_argument(
         "--output-dir",
         default="output",
@@ -45,11 +46,61 @@ def parse_args() -> argparse.Namespace:
         default=0.0,
         help="Column split offset as a fraction of page width (default: 0.0).",
     )
+
+    subparsers = parser.add_subparsers(dest="command")
+    add_parser = subparsers.add_parser(
+        "add-words",
+        help="Add words manually into the words.sqlite3 database.",
+    )
+    add_parser.add_argument(
+        "--entry",
+        action="append",
+        default=[],
+        help="Entry to insert as 'word[:source]' (repeatable).",
+    )
+    add_parser.add_argument(
+        "--db-path",
+        default="output/words.sqlite3",
+        help="Path to words.sqlite3 (default: output/words.sqlite3).",
+    )
+
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    if args.command == "add-words":
+        if not args.entry:
+            raise SystemExit("--entry is required (repeatable).")
+        entries: list[dict[str, object]] = []
+        for raw_entry in args.entry:
+            entry = str(raw_entry).strip()
+            if not entry:
+                continue
+            if ":" in entry:
+                word, source = entry.split(":", 1)
+            else:
+                word, source = entry, None
+            word = word.strip()
+            source = source.strip() if source is not None else None
+            if not word:
+                raise SystemExit("Entry word cannot be empty. Use --entry 'word[:source]'.")
+            entries.append({"word": word, "source": source})
+        if not entries:
+            raise SystemExit("No valid entries provided.")
+        stats = add_words_to_db(
+            entries,
+            db_path=Path(args.db_path),
+        )
+        print(
+            "Added {total_count} word(s) (unique: {unique_count}, duplicates: "
+            "{duplicate_count}).".format(**stats)
+        )
+        return
+
+    missing = [name for name in ("pdf", "start_page", "end_page") if getattr(args, name) is None]
+    if missing:
+        raise SystemExit("--pdf, --start-page, and --end-page are required for extraction.")
     extract_words(
         pdf_path=Path(args.pdf),
         start_page=args.start_page,

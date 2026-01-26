@@ -34,6 +34,18 @@ uv run neepwordextractor --pdf resources/pdfs/26考研英语一考试大纲.pdf 
   --spellcheck-rejected db
 ```
 
+人工添加词汇（用于复核 rejected_words.csv 后手动入库）：
+
+```bash
+uv run neepwordextractor add-words \
+  --entry "endeavour:26考研英语一考试大纲-81-L-2-endeavour" \
+  --entry "favourite:26考研英语一考试大纲-86-L-8-favourite" \
+  --entry "humourous:26考研英语一考试大纲-97-R-4-humo(u)rous" \
+  --entry "policewoman:26考研英语一考试大纲-125-L-3-policeman / policewoman"
+```
+
+说明：`--entry` 支持 `word[:source]`，source 可省略。
+
 ## debug
 
 ```bash
@@ -57,6 +69,19 @@ uv run neepwordextractor --pdf resources/pdfs/26考研英语一考试大纲.pdf 
 - `--spellcheck-rejected`：拼写检查未通过单词的去向（`csv` 或 `db`，默认 `csv`）
 - `--spellcheck-language`：拼写检查语言（可重复，默认 `en`）
 - `--split-offset`（`--split-offse`）：双栏分割偏移（默认 `0.0`，相对页宽的比例）
+- `add-words --entry "word[:source]"`：手动添加词汇（可重复）
+- `add-words --db-path`：指定 `words.sqlite3` 路径（默认 `output/words.sqlite3`）
+
+## 原理与流程
+
+整体流程基于“渲染 -> 图像处理 -> OCR -> 规范化/扩展 -> 拼写检查 -> 入库/导出”的流水线：
+
+1. PDF 页面渲染为高分辨率图像（pypdfium2）。
+2. 图像裁剪去除页眉/页脚，并进行对比度/二值化等增强处理（PIL）。
+3. 对双栏页面进行左右分栏，逐栏调用 OCR（ocrmac / Apple Vision）。
+4. OCR 文本清洗与规范化，词形扩展（例如大小写/标点处理等）。
+5. Cocoa 拼写检查：通过的词进入数据库；未通过的词写入 `rejected_words.csv` 或按配置写入数据库。
+6. 写入 `words.sqlite3`，按 `norm` 去重并累计 `frequency`。
 
 ## 技术栈
 

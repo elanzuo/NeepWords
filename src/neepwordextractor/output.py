@@ -80,6 +80,70 @@ def _compute_stats(words: list[dict[str, object]]) -> dict[str, object]:
     }
 
 
+def _write_words_db(
+    db_path: Path,
+    rows: Sequence[tuple[str, str, str | None, str | None]],
+) -> None:
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS words (
+                id INTEGER PRIMARY KEY,
+                word TEXT NOT NULL,
+                norm TEXT NOT NULL UNIQUE,
+                source TEXT,
+                ipa TEXT,
+                frequency INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+            )
+            """
+        )
+        conn.executemany(
+            """
+            INSERT INTO words (word, norm, source, ipa)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(norm) DO UPDATE SET
+                source=excluded.source,
+                ipa=excluded.ipa,
+                frequency=words.frequency + 1,
+                updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+            """,
+            rows,
+        )
+
+
+def add_words_to_db(
+    words: Iterable[str | Mapping[str, object]],
+    *,
+    db_path: Path,
+    source: str | None = None,
+) -> dict[str, object]:
+    """Insert words into the sqlite database and return stats."""
+    normalized = _normalize_words(words)
+    accepted: list[dict[str, object]] = []
+    rows: list[tuple[str, str, str | None, str | None]] = []
+    for item in normalized:
+        word = str(item.get("word", "")).strip()
+        if not word:
+            continue
+        norm = _normalize_word_value(word)
+        source_value = item.get("source")
+        if source_value is None or not str(source_value).strip():
+            source_value = source
+        source_text = str(source_value).strip() if source_value is not None else None
+        ipa_value = item.get("ipa")
+        ipa = str(ipa_value).strip() if ipa_value is not None else None
+        rows.append((word, norm, source_text, ipa))
+        accepted.append({"word": word, "source": source_text})
+
+    if rows:
+        _write_words_db(db_path, rows)
+
+    return _compute_stats(accepted)
+
+
 def write_outputs(
     words: Iterable[str | Mapping[str, object]],
     output_dir: Path,
@@ -124,46 +188,20 @@ def write_outputs(
         accepted = [item for item in normalized if str(item.get("word", "")).strip()]
 
     words_db = output_path / "words.sqlite3"
+    rows: list[tuple[str, str, str | None, str | None]] = []
+    for item in accepted:
+        word = str(item.get("word", "")).strip()
+        if not word:
+            continue
+        norm = _normalize_word_value(word)
+        source_value = item.get("source")
+        source = str(source_value).strip() if source_value is not None else None
+        ipa_value = item.get("ipa")
+        ipa = str(ipa_value).strip() if ipa_value is not None else None
+        rows.append((word, norm, source, ipa))
 
-    with sqlite3.connect(words_db) as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS words (
-                id INTEGER PRIMARY KEY,
-                word TEXT NOT NULL,
-                norm TEXT NOT NULL UNIQUE,
-                source TEXT,
-                ipa TEXT,
-                frequency INTEGER NOT NULL DEFAULT 1,
-                created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-                updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-            )
-            """
-        )
-        rows: list[tuple[str, str, str | None, str | None]] = []
-        for item in accepted:
-            word = str(item.get("word", "")).strip()
-            if not word:
-                continue
-            norm = _normalize_word_value(word)
-            source_value = item.get("source")
-            source = str(source_value).strip() if source_value is not None else None
-            ipa_value = item.get("ipa")
-            ipa = str(ipa_value).strip() if ipa_value is not None else None
-            rows.append((word, norm, source, ipa))
-
-        conn.executemany(
-            """
-            INSERT INTO words (word, norm, source, ipa)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(norm) DO UPDATE SET
-                source=excluded.source,
-                ipa=excluded.ipa,
-                frequency=words.frequency + 1,
-                updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
-            """,
-            rows,
-        )
+    if rows:
+        _write_words_db(words_db, rows)
 
     rejected_csv = None
     if spellcheck and spellcheck_rejected == "csv":
