@@ -2,7 +2,15 @@
 
 一个用于从扫描版考研英语（NEEP）大纲 PDF 指定页码范围中提取词汇的 Python OCR 工具，针对 macOS Apple Silicon 优化。
 
-## 快速开始
+## 目录
+
+- [提取词汇（主命令）](#提取词汇主命令)
+- [添加词汇（add-words）](#添加词汇add-words)
+- [导出词表（export-csv）](#导出词表export-csv)
+- [原理与流程](#原理与流程)
+- [技术栈](#技术栈)
+
+## 提取词汇（主命令）
 
 ```bash
 uv sync
@@ -34,19 +42,7 @@ uv run neepwordextractor --pdf resources/pdfs/26考研英语一考试大纲.pdf 
   --spellcheck-rejected db
 ```
 
-人工添加词汇（用于复核 rejected_words.csv 后手动入库）：
-
-```bash
-uv run neepwordextractor add-words \
-  --entry "endeavour:26考研英语一考试大纲-81-L-2-endeavour" \
-  --entry "favourite:26考研英语一考试大纲-86-L-8-favourite" \
-  --entry "humourous:26考研英语一考试大纲-97-R-4-humo(u)rous" \
-  --entry "policewoman:26考研英语一考试大纲-125-L-3-policeman / policewoman"
-```
-
-说明：`--entry` 支持 `word[:source]`，source 可省略。
-
-## debug
+调试输出：
 
 ```bash
 uv run neepwordextractor --pdf resources/pdfs/26考研英语一考试大纲.pdf \
@@ -58,7 +54,7 @@ uv run neepwordextractor --pdf resources/pdfs/26考研英语一考试大纲.pdf 
   --debug-dir debug
 ```
 
-## CLI 参数
+参数（主命令）：
 
 - `--pdf`：输入 PDF 路径（必填）
 - `--start-page`：起始页码，1-based（必填）
@@ -69,8 +65,40 @@ uv run neepwordextractor --pdf resources/pdfs/26考研英语一考试大纲.pdf 
 - `--spellcheck-rejected`：拼写检查未通过单词的去向（`csv` 或 `db`，默认 `csv`）
 - `--spellcheck-language`：拼写检查语言（可重复，默认 `en`）
 - `--split-offset`（`--split-offse`）：双栏分割偏移（默认 `0.0`，相对页宽的比例）
-- `add-words --entry "word[:source]"`：手动添加词汇（可重复）
-- `add-words --db-path`：指定 `words.sqlite3` 路径（默认 `output/words.sqlite3`）
+
+## 添加词汇（add-words）
+
+用于复核 rejected_words.csv 后手动入库：
+
+```bash
+uv run neepwordextractor add-words \
+  --entry "endeavour:26考研英语一考试大纲-81-L-2-endeavour" \
+  --entry "favourite:26考研英语一考试大纲-86-L-8-favourite" \
+  --entry "humourous:26考研英语一考试大纲-97-R-4-humo(u)rous" \
+  --entry "policewoman:26考研英语一考试大纲-125-L-3-policeman / policewoman"
+```
+
+说明：`--entry` 支持 `word[:source]`，source 可省略。
+
+参数（add-words）：
+
+- `--entry`：词条 `word[:source]`（可重复）
+- `--db-path`：指定 `words.sqlite3` 路径（默认 `output/words.sqlite3`）
+
+## 导出词表（export-csv）
+
+```bash
+uv run neepwordextractor export-csv --csv-path words/2026-01-26.csv --columns word --db-path output/words.sqlite3
+uv run neepwordextractor export-csv --csv-path words/2026-01-26-source.csv --columns word,source --db-path output/words.sqlite3
+```
+
+说明：默认导出路径为 `words/YYYY-MM-DD.csv`，默认导出列为 `word,source`。
+
+参数（export-csv）：
+
+- `--db-path`：指定导出的 `words.sqlite3` 路径（默认 `output/words.sqlite3`）
+- `--csv-path`：指定导出的 CSV 路径（默认 `words/YYYY-MM-DD.csv`）
+- `--columns`：指定导出列（默认 `word,source`，逗号分隔）
 
 ## 原理与流程
 

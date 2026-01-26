@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import argparse
+from datetime import date
 from pathlib import Path
 
 from .core import extract_words
-from .output import add_words_to_db
+from .output import add_words_to_db, export_words_to_csv
 
 
 def parse_args() -> argparse.Namespace:
@@ -64,6 +65,25 @@ def parse_args() -> argparse.Namespace:
         help="Path to words.sqlite3 (default: output/words.sqlite3).",
     )
 
+    export_parser = subparsers.add_parser(
+        "export-csv",
+        help="Export words.sqlite3 data to a CSV file.",
+    )
+    export_parser.add_argument(
+        "--db-path",
+        default="output/words.sqlite3",
+        help="Path to words.sqlite3 (default: output/words.sqlite3).",
+    )
+    export_parser.add_argument(
+        "--csv-path",
+        help="CSV output path (default: words/YYYY-MM-DD.csv).",
+    )
+    export_parser.add_argument(
+        "--columns",
+        default="word,source",
+        help="Comma-separated columns to export (default: word,source).",
+    )
+
     return parser.parse_args()
 
 
@@ -96,6 +116,25 @@ def main() -> None:
             "Added {total_count} word(s) (unique: {unique_count}, duplicates: "
             "{duplicate_count}).".format(**stats)
         )
+        return
+    if args.command == "export-csv":
+        columns = [col.strip() for col in str(args.columns).split(",") if col.strip()]
+        if not columns:
+            raise SystemExit("--columns must include at least one column name.")
+        csv_path = (
+            Path(args.csv_path)
+            if args.csv_path
+            else Path("words") / f"{date.today().isoformat()}.csv"
+        )
+        try:
+            stats = export_words_to_csv(
+                Path(args.db_path),
+                csv_path,
+                columns,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            raise SystemExit(str(exc)) from exc
+        print(f"Exported {stats['row_count']} row(s) to {stats['csv_path']}.")
         return
 
     missing = [name for name in ("pdf", "start_page", "end_page") if getattr(args, name) is None]

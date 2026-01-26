@@ -226,3 +226,42 @@ def write_outputs(
     if rejected_csv is not None:
         stats["rejected_csv"] = str(rejected_csv)
     return stats
+
+
+def export_words_to_csv(
+    db_path: Path,
+    csv_path: Path,
+    columns: Sequence[str],
+) -> dict[str, object]:
+    """Export the words table to a CSV file."""
+    if not db_path.exists():
+        raise FileNotFoundError(f"Database not found: {db_path}")
+
+    column_list = [column.strip() for column in columns if column and column.strip()]
+    if not column_list:
+        raise ValueError("At least one column must be provided.")
+
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        column_rows = conn.execute("PRAGMA table_info(words)").fetchall()
+        available_columns = {row["name"] for row in column_rows}
+        if not available_columns:
+            raise ValueError("words table not found in database.")
+        missing = [column for column in column_list if column not in available_columns]
+        if missing:
+            available = ", ".join(sorted(available_columns))
+            raise ValueError(f"Unknown columns: {', '.join(missing)}. Available: {available}")
+
+        select_columns = ", ".join(f'"{column}"' for column in column_list)
+        cursor = conn.execute(f"SELECT {select_columns} FROM words ORDER BY id")
+
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+        row_count = 0
+        with csv_path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(column_list)
+            for row in cursor:
+                writer.writerow([row[column] for column in column_list])
+                row_count += 1
+
+    return {"row_count": row_count, "csv_path": str(csv_path)}
