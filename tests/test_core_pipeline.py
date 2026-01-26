@@ -22,7 +22,7 @@ def test_extract_words_wires_pipeline(tmp_path, monkeypatch):
 
     captured = {}
 
-    def fake_write_outputs(words, output_dir):
+    def fake_write_outputs(words, output_dir, **kwargs):
         captured["words"] = words
         return {"total_count": len(words)}
 

@@ -70,6 +70,7 @@ def expand_variants(line: str) -> list[str]:
     return [
         variant
         for variant in variants
+        if not variant.startswith("-")
         if not (variant.endswith("ou") and f"{variant}r" in variant_set)
     ]
 

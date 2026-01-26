@@ -6,9 +6,10 @@ import csv
 import importlib
 import re
 import sqlite3
+import warnings
 from collections import Counter
 from pathlib import Path
-from typing import Any, Iterable, Mapping, cast
+from typing import Any, Iterable, Mapping, Sequence, cast
 
 try:
     Cocoa: Any | None = importlib.import_module("Cocoa")
@@ -28,11 +29,18 @@ def _ensure_spellchecker_available() -> Any:
     return cast(Any, Cocoa)
 
 
-def _is_word_spelled_correctly(word: str, *, language: str = "en_US") -> bool:
+def _is_word_spelled_correctly(word: str, *, languages: Sequence[str]) -> bool:
     cocoa = _ensure_spellchecker_available()
     checker = cocoa.NSSpellChecker.sharedSpellChecker()
-    range_result = checker.checkSpellingOfString_startingAt_(word, 0)
-    return range_result[0] == cocoa.NSNotFound
+    available = set(checker.availableLanguages())
+    for language in languages:
+        if language not in available:
+            continue
+        checker.setLanguage_(language)
+        range_result = checker.checkSpellingOfString_startingAt_(word, 0)
+        if range_result[0] == cocoa.NSNotFound:
+            return True
+    return False
 
 
 def _normalize_words(
@@ -78,6 +86,7 @@ def write_outputs(
     *,
     spellcheck: bool = True,
     spellcheck_rejected: str = "csv",
+    spellcheck_languages: Sequence[str] | None = None,
 ) -> dict[str, object]:
     """Write words to a sqlite database and return stats."""
     output_path = Path(output_dir)
@@ -87,13 +96,25 @@ def write_outputs(
     accepted: list[dict[str, object]] = []
     rejected: list[dict[str, object]] = []
 
+    languages = [lang for lang in (spellcheck_languages or ("en",)) if lang]
+    available_languages: set[str] = set()
     if spellcheck:
         _ensure_spellchecker_available()
+        cocoa = _ensure_spellchecker_available()
+        checker = cocoa.NSSpellChecker.sharedSpellChecker()
+        available_languages = set(checker.availableLanguages())
+        missing = [lang for lang in languages if lang not in available_languages]
+        if missing:
+            warnings.warn(
+                "Spellcheck language(s) unavailable: "
+                f"{', '.join(missing)}. Available: {', '.join(sorted(available_languages))}",
+                RuntimeWarning,
+            )
         for item in normalized:
             word = str(item.get("word", "")).strip()
             if not word:
                 continue
-            if _is_word_spelled_correctly(word):
+            if _is_word_spelled_correctly(word, languages=languages):
                 accepted.append(item)
             else:
                 rejected.append(item)
@@ -150,7 +171,7 @@ def write_outputs(
         with rejected_csv.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(
                 handle,
-                fieldnames=["word", "reason", "source", "page", "column", "line"],
+                fieldnames=["word", "reason", "source"],
             )
             writer.writeheader()
             for item in rejected:
@@ -159,9 +180,6 @@ def write_outputs(
                         "word": str(item.get("word", "")).strip(),
                         "reason": "misspelled",
                         "source": item.get("source"),
-                        "page": item.get("page"),
-                        "column": item.get("column"),
-                        "line": item.get("line"),
                     }
                 )
 
