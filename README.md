@@ -1,6 +1,6 @@
 # NeepWordExtractor
 
-一个用于从扫描版考研英语（NEEP）大纲 PDF 指定页码范围中提取词汇的 Python OCR 工具，针对 macOS Apple Silicon 优化。
+一个用于从扫描版考研英语（NEEP）大纲 PDF 指定页码范围中提取词汇的 Python OCR 工具，针对 macOS Apple Silicon 优化。其中 `words/` 下的文件为从 PDF 提取出的 5620 个单词的 CSV。
 
 ## 目录
 
@@ -93,6 +93,7 @@ uv run neepwordextractor export-csv --csv-path words/2026-01-26-source.csv --col
 ```
 
 说明：默认导出路径为 `words/YYYY-MM-DD.csv`，默认导出列为 `word,source`。
+`words/` 下的文件为从 PDF 提取出的 5620 个单词的 CSV。
 
 参数（export-csv）：
 
