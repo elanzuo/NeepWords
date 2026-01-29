@@ -14,11 +14,11 @@
 
 ## Functional Flow (Current)
 - PDF -> image rendering -> crop/split -> OCR -> normalize/expand -> spellcheck -> output.
-- Spellcheck: Cocoa `NSSpellChecker` by default. Failures go to `words/rejected_words.csv` unless configured to write into DB.
+- Spellcheck: Cocoa `NSSpellChecker` by default. Failures go to `output/rejected_words.csv` unless configured to write into DB.
 - Outputs:
-  - SQLite: `words/words.sqlite3` table `words` (`word/norm/source/ipa/frequency/created_at/updated_at`).
-  - CSV (optional): `words/rejected_words.csv` columns `word/reason/source/page/column/line`.
-  - CSV exports: `words/YYYY-MM-DD.csv` via `export-csv`.
+  - SQLite: `output/words.sqlite3` table `words` (`word/norm/source/ipa/frequency/created_at/updated_at`).
+  - CSV (optional): `output/rejected_words.csv` columns `word/reason/source/page/column/line`.
+  - CSV exports: `output/YYYY-MM-DD.csv` via `export-csv`.
 
 ## Build, Test, and Development Commands
 - `python -m word_extractor --help` shows CLI usage.

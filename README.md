@@ -1,6 +1,6 @@
 # NeepWord
 
-一个用于从扫描版考研英语（NEEP）大纲 PDF 指定页码范围中提取词汇的 Python OCR 工具，并内置 MCP server 供 AI 助手安全、只读地查询本地词库。针对 macOS Apple Silicon 优化。其中 `words/` 下的文件为从 PDF 提取出的 5620 个单词的 CSV。
+一个用于从扫描版考研英语（NEEP）大纲 PDF 指定页码范围中提取词汇的 Python OCR 工具，并内置 MCP server 供 AI 助手安全、只读地查询本地词库。针对 macOS Apple Silicon 优化。其中 `resources/data/` 下的文件为从 PDF 提取出的 5600 个左右的单词。
 
 ## 目录
 
@@ -8,8 +8,8 @@
   - [提取词汇（主命令）](#提取词汇主命令)
   - [添加词汇（add-words）](#添加词汇add-words)
   - [导出词表（export-csv）](#导出词表export-csv)
+  - [原理与流程](#原理与流程)
 - [MCP Server](#mcp-server)
-- [原理与流程](#原理与流程)
 - [技术栈](#技术栈)
 
 ## 提取词汇 CLI
@@ -63,7 +63,7 @@ uv run word_extractor --pdf resources/pdfs/26考研英语一考试大纲.pdf \
 - `--pdf`：输入 PDF 路径（必填）
 - `--start-page`：起始页码，1-based（必填）
 - `--end-page`：结束页码，1-based（必填）
-- `--output-dir`：输出目录（默认 `words`）
+- `--output-dir`：输出目录（默认 `output`）
 - `--debug-dir`：调试输出目录（可选，保存裁剪/分栏等中间图像），例如`--debug-dir debug`
 - `--spellcheck` / `--no-spellcheck`：是否启用 Cocoa 拼写检查（默认启用）
 - `--spellcheck-rejected`：拼写检查未通过单词的去向（`csv` 或 `db`，默认 `csv`）
@@ -87,27 +87,37 @@ uv run word_extractor add-words \
 参数（add-words）：
 
 - `--entry`：词条 `word[:source]`（可重复）
-- `--db-path`：指定 `words.sqlite3` 路径（默认 `words/words.sqlite3`）
+- `--db-path`：指定 `words.sqlite3` 路径（默认 `output/words.sqlite3`）
 
 ### 导出词表（export-csv）
 
 ```bash
-uv run word_extractor export-csv --csv-path words/2026-01-26.csv --columns word --db-path words/words.sqlite3
-uv run word_extractor export-csv --csv-path words/2026-01-26-source.csv --columns word,source --db-path words/words.sqlite3
+uv run word_extractor export-csv --csv-path output/2026-01-26.csv --columns word --db-path output/words.sqlite3
+uv run word_extractor export-csv --csv-path output/2026-01-26-source.csv --columns word,source --db-path output/words.sqlite3
 ```
 
-说明：默认导出路径为 `words/YYYY-MM-DD.csv`，默认导出列为 `word,source`。
-`words/` 下的文件为从 PDF 提取出的 5620 个单词的 CSV。
+说明：默认导出路径为 `output/YYYY-MM-DD.csv`，默认导出列为 `word,source`。
 
 参数（export-csv）：
 
 - `--db-path`：指定导出的 `words.sqlite3` 路径（默认 `output/words.sqlite3`）
-- `--csv-path`：指定导出的 CSV 路径（默认 `words/YYYY-MM-DD.csv`）
+- `--csv-path`：指定导出的 CSV 路径（默认 `output/YYYY-MM-DD.csv`）
 - `--columns`：指定导出列（默认 `word,source`，逗号分隔）
+
+### 原理与流程
+
+整体流程基于“渲染 -> 图像处理 -> OCR -> 规范化/扩展 -> 拼写检查 -> 入库/导出”的流水线：
+
+1. PDF 页面渲染为高分辨率图像（pypdfium2）。
+2. 图像裁剪去除页眉/页脚，并进行对比度/二值化等增强处理（PIL）。
+3. 对双栏页面进行左右分栏，逐栏调用 OCR（ocrmac / Apple Vision）。
+4. OCR 文本清洗与规范化，词形扩展（例如大小写/标点处理等）。
+5. Cocoa 拼写检查：通过的词进入数据库；未通过的词写入 `rejected_words.csv` 或按配置写入数据库。
+6. 写入 `words.sqlite3`，按 `norm` 去重并累计 `frequency`。
 
 ## MCP Server
 
-本项目提供 MCP server（`neep_mcp`），用于只读查询 `words/words.sqlite3` 中的词库数据，便于 AI 助手在本地获取权威词表信息。
+本项目提供 MCP server（`neep_mcp`），用于只读查询 `resources/data/words.sqlite3` 中的词库数据，便于 AI 助手在本地获取权威词表信息。
 
 启动：
 
@@ -120,17 +130,6 @@ uv run python -m neep_mcp.server
 ```bash
 NEEP_WORDS_DB_PATH=/path/to/words.sqlite3
 ```
-
-## 原理与流程
-
-整体流程基于“渲染 -> 图像处理 -> OCR -> 规范化/扩展 -> 拼写检查 -> 入库/导出”的流水线：
-
-1. PDF 页面渲染为高分辨率图像（pypdfium2）。
-2. 图像裁剪去除页眉/页脚，并进行对比度/二值化等增强处理（PIL）。
-3. 对双栏页面进行左右分栏，逐栏调用 OCR（ocrmac / Apple Vision）。
-4. OCR 文本清洗与规范化，词形扩展（例如大小写/标点处理等）。
-5. Cocoa 拼写检查：通过的词进入数据库；未通过的词写入 `rejected_words.csv` 或按配置写入数据库。
-6. 写入 `words.sqlite3`，按 `norm` 去重并累计 `frequency`。
 
 ## 技术栈
 
