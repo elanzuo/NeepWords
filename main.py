@@ -1,5 +1,5 @@
 def main():
-    print("Hello from neepwordextractor!")
+    print("Hello from word_extractor!")
 
 
 if __name__ == "__main__":

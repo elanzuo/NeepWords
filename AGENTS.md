@@ -3,25 +3,29 @@
 ## Project Overview & Docs
 - Goal: Extract vocabulary from specified page ranges of the scanned 《考研考试大纲.pdf》.
 - Design doc: `docs/design.md`.
+- MCP server design: `docs/mcp_design.md`.
 
 ## Project Structure & Module Organization
-- `src/neepwordextractor/main.py` contains the CLI entry point.
+- `src/word_extractor/main.py` contains the CLI entry point.
+- `src/neep_mcp/server.py` contains the MCP server entry point.
 - `pyproject.toml` defines project metadata and the required Python version (>= 3.13).
 - `resources/` is intended for input assets (e.g., source PDFs, sample images) and derived artifacts.
 - `tmp.txt` is a scratch file; do not depend on it for production behavior.
 
 ## Functional Flow (Current)
 - PDF -> image rendering -> crop/split -> OCR -> normalize/expand -> spellcheck -> output.
-- Spellcheck: Cocoa `NSSpellChecker` by default. Failures go to `output/rejected_words.csv` unless configured to write into DB.
+- Spellcheck: Cocoa `NSSpellChecker` by default. Failures go to `words/rejected_words.csv` unless configured to write into DB.
 - Outputs:
-  - SQLite: `output/words.sqlite3` table `words` (`word/norm/source/ipa/frequency/created_at/updated_at`).
-  - CSV (optional): `output/rejected_words.csv` columns `word/reason/source/page/column/line`.
+  - SQLite: `words/words.sqlite3` table `words` (`word/norm/source/ipa/frequency/created_at/updated_at`).
+  - CSV (optional): `words/rejected_words.csv` columns `word/reason/source/page/column/line`.
+  - CSV exports: `words/YYYY-MM-DD.csv` via `export-csv`.
 
 ## Build, Test, and Development Commands
-- `python -m neepwordextractor --help` shows CLI usage.
+- `python -m word_extractor --help` shows CLI usage.
+- `python -m neep_mcp.server` starts the MCP server.
 - `uv run pytest -q` runs the test suite.
 - Use `uv` as the project manager; install dependencies with `uv add` by default.
-- There is no build pipeline yet. When OCR logic is added, prefer a CLI entry point (e.g., `python -m neepwordextractor ...`).
+- There is no build pipeline yet. When OCR logic is added, prefer a CLI entry point (e.g., `python -m word_extractor ...`).
 
 ## Coding Style & Naming Conventions
 - Use 4-space indentation and standard PEP 8 naming (e.g., `snake_case` for functions/variables).
@@ -46,3 +50,4 @@
 - PDF to images: `pypdfium2` for high-fidelity page rendering (scanned PDFs first step).
 - Image processing: `PIL` for header/footer cropping and vertical split into left/right columns.
 - OCR engine: `ocrmac` (Apple Vision) as the primary OCR backend.
+- MCP server: `mcp` (FastMCP) for read-only word queries.

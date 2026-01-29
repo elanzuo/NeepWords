@@ -63,7 +63,7 @@
 ```
 NeepWordExtractor/
   src/
-    neepwordextractor/
+    word_extractor/
       __init__.py
       main.py             # CLI 入口
       core.py             # 流程编排

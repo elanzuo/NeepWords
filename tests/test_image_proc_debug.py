@@ -1,6 +1,6 @@
 from PIL import Image
 
-from neepwordextractor.image_proc import save_debug_images
+from word_extractor.image_proc import save_debug_images
 
 
 def test_save_debug_images_writes_files(tmp_path):

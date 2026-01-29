@@ -2,8 +2,8 @@ from pathlib import Path
 
 from PIL import Image
 
-from neepwordextractor import core
-from neepwordextractor.ocr_engine import OCRAnnotation
+from word_extractor import core
+from word_extractor.ocr_engine import OCRAnnotation
 
 
 def test_extract_words_wires_pipeline(tmp_path, monkeypatch):

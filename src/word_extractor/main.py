@@ -17,8 +17,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--end-page", type=int, help="End page (1-based).")
     parser.add_argument(
         "--output-dir",
-        default="output",
-        help="Output directory (default: output).",
+        default="words",
+        help="Output directory (default: words).",
     )
     parser.add_argument("--debug-dir", help="Optional debug output directory.")
     parser.add_argument(

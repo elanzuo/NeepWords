@@ -1,10 +1,11 @@
 [project]
-name = "neepwordextractor"
+name = "word_extractor"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "mcp",
     "ocrmac>=1.0.1",
     "pillow>=12.1.0",
     "pyobjc-framework-cocoa>=12.1",
@@ -12,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-neepwordextractor = "neepwordextractor.main:main"
+word_extractor = "word_extractor.main:main"
 
 [build-system]
 requires = ["hatchling>=1.25.0"]

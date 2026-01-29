@@ -1,4 +1,4 @@
-"""NeepWordExtractor package."""
+"""WordExtractor package."""
 
 from . import cleaner, core, image_proc, main, ocr_engine, output, pdf_renderer
 

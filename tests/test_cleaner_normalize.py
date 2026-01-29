@@ -1,4 +1,4 @@
-from neepwordextractor.cleaner import expand_variants, normalize_text
+from word_extractor.cleaner import expand_variants, normalize_text
 
 
 def test_normalize_text_strips_disallowed_chars():

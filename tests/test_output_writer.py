@@ -1,6 +1,6 @@
 import sqlite3
 
-from neepwordextractor.output import write_outputs
+from word_extractor.output import write_outputs
 
 
 def test_write_outputs_with_strings(tmp_path):

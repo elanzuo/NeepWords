@@ -1,6 +1,6 @@
 from PIL import Image
 
-from neepwordextractor import ocr_engine
+from word_extractor import ocr_engine
 
 
 class _FakeOCR:

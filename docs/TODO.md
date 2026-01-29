@@ -1,6 +1,6 @@
 # TODO
 
-- [x] Set up CLI entry point in `src/neepwordextractor/main.py`
+- [x] Set up CLI entry point in `src/word_extractor/main.py`
 - [x] Implement PDF rendering with `pypdfium2`
 - [x] Implement image preprocessing (crop/split/optional enhance)
 - [x] Implement OCR wrapper with `ocrmac`

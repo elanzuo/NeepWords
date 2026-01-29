@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from neepwordextractor.pdf_renderer import render_pdf_pages
+from word_extractor.pdf_renderer import render_pdf_pages
 
 
 def test_render_pdf_pages_rejects_non_positive_pages():

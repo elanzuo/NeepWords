@@ -1,7 +1,7 @@
 import pytest
 from PIL import Image
 
-from neepwordextractor.image_proc import preprocess_page
+from word_extractor.image_proc import preprocess_page
 
 
 def test_preprocess_page_crops_and_splits():
