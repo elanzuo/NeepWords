@@ -1,6 +1,6 @@
 # NeepWords
 
-一个用于从扫描版考研英语（NEEP）大纲 PDF 指定页码范围中提取词汇的 Python OCR 工具，并内置 MCP server 供 AI 助手安全、只读地查询本地词库。针对 macOS Apple Silicon 优化。其中 `resources/data/` 下的文件为从 PDF 提取出的 5600 个左右的单词。
+一个用于从扫描版考研英语《考试大纲》 PDF 中提取词汇的 Python OCR 工具，并内置 MCP server 供 AI 助手安全、只读地查询本地词库，针对 macOS Apple Silicon 优化。其中 `resources/data/` 下的文件为从 PDF 提取出的 5600 个左右的单词。
 
 ## 目录
 
@@ -13,6 +13,8 @@
 - [技术栈](#技术栈)
 
 ## 提取词汇 CLI
+
+<img src="resources/img/ocr.png" alt="OCR 示例截图" width="520">
 
 ### 提取词汇（主命令）
 
@@ -118,6 +120,19 @@ uv run word_extractor export-csv --csv-path output/2026-01-26-source.csv --colum
 ## MCP Server
 
 本项目提供 MCP server（`neep_mcp`），用于只读查询 `resources/data/words.sqlite3` 中的词库数据，便于 AI 助手在本地获取权威词表信息。
+
+<img src="resources/img/mcp.png" alt="MCP 示例截图" width="520">
+
+### Tools
+
+- `lookup_words`：批量精确查询，支持 `match=word|norm|auto`。
+- `search_words`：模糊搜索（默认 `mode=contains`），结果仅返回 `word`。支持 `prefix` / `suffix` / `contains` / `fuzzy` / `wildcard`。
+  - `prefix`：词首匹配
+  - `suffix`：词尾匹配
+  - `contains`：词中包含
+  - `fuzzy`：字符序列匹配（按顺序出现即可）
+  - `wildcard`：SQL LIKE 风格通配符（`%` 任意长度，`_` 单字符）
+- `get_random_words`：随机获取词汇，可选 `min_frequency` 过滤。
 
 启动：
 

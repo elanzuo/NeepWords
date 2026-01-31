@@ -117,6 +117,40 @@ def _sanitize_token(value: str) -> tuple[str | None, list[str]]:
     return cleaned, warnings
 
 
+def _sanitize_wildcard(value: str) -> tuple[str | None, list[str]]:
+    warnings: list[str] = []
+    if value is None:
+        return None, ["empty_input"]
+    raw = str(value).strip()
+    if not raw:
+        return None, ["empty_input"]
+
+    cleaned_chars: list[str] = []
+    has_letter = False
+    for ch in raw:
+        if "A" <= ch <= "Z":
+            cleaned_chars.append(ch.lower())
+            has_letter = True
+            if ch != ch.lower():
+                warnings.append("normalized_input")
+        elif "a" <= ch <= "z":
+            cleaned_chars.append(ch)
+            has_letter = True
+        elif ch in {"-", "%", "_"}:
+            cleaned_chars.append(ch)
+        else:
+            return None, ["invalid_characters"]
+
+    cleaned = "".join(cleaned_chars)
+    if not cleaned:
+        return None, ["empty_input"]
+    if not has_letter:
+        return None, ["no_english_tokens"]
+    if len(cleaned) > MAX_WORD_LENGTH:
+        return None, ["too_long"]
+    return cleaned, warnings
+
+
 def _row_to_result(row: sqlite3.Row) -> WordsQueryResult:
     return WordsQueryResult(
         word=row["word"],
@@ -221,7 +255,7 @@ def lookup_words(words: Iterable[str], match: str | None = "auto") -> dict[str, 
 @mcp.tool()
 def search_words(
     query: str,
-    mode: str | None = "prefix",
+    mode: str | None = "contains",
     limit: int | None = 10,
     offset: int | None = 0,
 ) -> dict[str, Any]:
@@ -231,9 +265,11 @@ def search_words(
     Args:
         query: The search string.
         mode: Search mode:
-            - "prefix" (default): Matches words starting with the query (e.g., "ab" -> "abandon").
-            - "contains": Matches words containing the query (e.g., "ban" -> "abandon").
+            - "prefix": Matches words starting with the query (e.g., "ab" -> "abandon").
+            - "suffix": Matches words ending with the query (e.g., "tion" -> "information").
+            - "contains" (default): Matches words containing the query (e.g., "ban" -> "abandon").
             - "fuzzy": Matches characters in sequence (e.g., "tst" -> "test").
+            - "wildcard": SQL LIKE pattern with %, _ (e.g., "in%tion" -> "information").
         limit: Max number of results to return (default 10, max 200).
         offset: Pagination offset.
     """
@@ -243,13 +279,17 @@ def search_words(
 
     if query is None:
         return _make_response(False, error="missing_query")
-    cleaned, warnings = _sanitize_token(str(query))
+
+    mode_value = (mode or "contains").lower()
+    if mode_value not in {"prefix", "suffix", "contains", "fuzzy", "wildcard"}:
+        return _make_response(False, error="invalid_mode")
+
+    if mode_value == "wildcard":
+        cleaned, warnings = _sanitize_wildcard(str(query))
+    else:
+        cleaned, warnings = _sanitize_token(str(query))
     if cleaned is None:
         return _make_response(False, error="invalid_query", warnings=warnings)
-
-    mode_value = (mode or "prefix").lower()
-    if mode_value not in {"prefix", "contains", "fuzzy"}:
-        return _make_response(False, error="invalid_mode")
 
     try:
         limit_value = int(limit or 10)
@@ -266,8 +306,12 @@ def search_words(
 
     if mode_value == "prefix":
         pattern = f"{cleaned}%"
+    elif mode_value == "suffix":
+        pattern = f"%{cleaned}"
     elif mode_value == "contains":
         pattern = f"%{cleaned}%"
+    elif mode_value == "wildcard":
+        pattern = cleaned
     else:
         pattern = "%" + "%".join(cleaned) + "%"
 
@@ -281,18 +325,7 @@ def search_words(
     except sqlite3.Error:
         return _make_response(False, error="db_error")
 
-    results = [
-        {
-            "word": row["word"],
-            "norm": row["norm"],
-            "source": row["source"],
-            "ipa": row["ipa"],
-            "frequency": row["frequency"],
-            "created_at": row["created_at"],
-            "updated_at": row["updated_at"],
-        }
-        for row in rows
-    ]
+    results = [{"word": row["word"]} for row in rows]
 
     return _make_response(
         True,
