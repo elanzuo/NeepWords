@@ -4,14 +4,14 @@
 
 ## 1. 概述
 本设计旨在为 `NeepWordExtractor` 项目实现一个 Model Context Protocol (MCP) 服务器。
-该服务器将允许 AI 助手（如 Claude Desktop, Cursor 等）直接访问本地的 `words/words.sqlite3` 数据库。
+该服务器将允许 AI 助手（如 Claude Desktop, Cursor 等）直接访问本地的 `resources/data/words.sqlite3` 数据库。
 通过此接口，AI 可以获取准确的考研大纲词汇、音标、词频及来源信息，从而生成准确的考研辅导内容，避免因模型训练数据偏差导致的“幻觉”。
 
 ## 2. 核心架构
 
 - **语言**: Python (>= 3.13)
 - **依赖库**: `mcp` (官方 Python SDK)
-- **数据源**: `words/words.sqlite3` (SQLite 数据库，可配置路径)
+- **数据源**: `resources/data/words.sqlite3` (SQLite 数据库，可配置路径)
 - **通信协议**: Stdio (标准输入输出)，适用于本地运行
 - **代码位置**: `src/neep_mcp/` (作为独立模块或子包)
 - **读写边界**: **只读访问**（不对数据库进行更新/删除）

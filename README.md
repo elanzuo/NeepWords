@@ -1,4 +1,4 @@
-# NeepWord
+# NeepWords
 
 一个用于从扫描版考研英语（NEEP）大纲 PDF 指定页码范围中提取词汇的 Python OCR 工具，并内置 MCP server 供 AI 助手安全、只读地查询本地词库。针对 macOS Apple Silicon 优化。其中 `resources/data/` 下的文件为从 PDF 提取出的 5600 个左右的单词。
 
