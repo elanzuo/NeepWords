@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "neep-words": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "/Users/map/codes/neep-2027/NeepWordExtractor",
+        "python",
+        "-m",
+        "neep_mcp.server"
+      ],
+      "env": {
+        "NEEP_WORDS_DB_PATH": "/Users/map/codes/neep-2027/NeepWordExtractor/resources/data/words.sqlite3"
+      }
+    }
+  }
+}

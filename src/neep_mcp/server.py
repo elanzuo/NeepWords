@@ -13,7 +13,7 @@ from typing import Any, Iterable, Sequence
 
 from mcp.server.fastmcp import FastMCP
 
-DEFAULT_DB_PATH = Path("words") / "words.sqlite3"
+DEFAULT_DB_PATH = Path("resources") / "data" / "words.sqlite3"
 MAX_WORD_LENGTH = 64
 MAX_LOOKUP = 200
 MAX_SEARCH = 200
@@ -104,6 +104,8 @@ def _sanitize_token(value: str) -> tuple[str | None, list[str]]:
     tokens = _WORD_RE.findall(raw)
     if not tokens:
         return None, ["no_english_tokens"]
+    if len(tokens) > 1:
+        warnings.append("multiple_tokens_found_using_longest")
     token = max(tokens, key=len)
     cleaned = re.sub(r"[^A-Za-z-]+", "", token).lower()
     if not cleaned:
@@ -133,6 +135,16 @@ def _db() -> WordsDatabase:
 
 @mcp.tool()
 def lookup_words(words: Iterable[str], match: str | None = "auto") -> dict[str, Any]:
+    """
+    Look up multiple words in the NEEP (Postgraduate Entrance Exam) syllabus.
+
+    Args:
+        words: List of words to query (e.g., ["abandon", "ability"]).
+        match: Matching strategy:
+            - "auto" (default): Tries exact spelling match first, then falls back to normalized form (lemma).
+            - "word": strict exact spelling match.
+            - "norm": strict normalized form (lemma) match.
+    """
     rate_error = _rate_limiter.check()
     if rate_error:
         return _make_response(False, error=rate_error)
@@ -170,10 +182,13 @@ def lookup_words(words: Iterable[str], match: str | None = "auto") -> dict[str, 
                 elif match_value == "norm":
                     row = conn.execute("SELECT * FROM words WHERE norm = ?", (cleaned,)).fetchone()
                 else:
-                    row = conn.execute("SELECT * FROM words WHERE norm = ?", (cleaned,)).fetchone()
+                    # auto: try exact word match first, then norm
+                    row = conn.execute(
+                        "SELECT * FROM words WHERE lower(word) = ?", (cleaned,)
+                    ).fetchone()
                     if row is None:
                         row = conn.execute(
-                            "SELECT * FROM words WHERE lower(word) = ?", (cleaned,)
+                            "SELECT * FROM words WHERE norm = ?", (cleaned,)
                         ).fetchone()
 
                 if row is None:
@@ -210,6 +225,18 @@ def search_words(
     limit: int | None = 10,
     offset: int | None = 0,
 ) -> dict[str, Any]:
+    """
+    Search for words in the syllabus using prefix, substring, or fuzzy matching.
+
+    Args:
+        query: The search string.
+        mode: Search mode:
+            - "prefix" (default): Matches words starting with the query (e.g., "ab" -> "abandon").
+            - "contains": Matches words containing the query (e.g., "ban" -> "abandon").
+            - "fuzzy": Matches characters in sequence (e.g., "tst" -> "test").
+        limit: Max number of results to return (default 10, max 200).
+        offset: Pagination offset.
+    """
     rate_error = _rate_limiter.check()
     if rate_error:
         return _make_response(False, error=rate_error)
@@ -282,6 +309,14 @@ def search_words(
 
 @mcp.tool()
 def get_random_words(count: int | None = 5, min_frequency: int | None = None) -> dict[str, Any]:
+    """
+    Get a random set of words from the syllabus, useful for quizzes or daily learning.
+
+    Args:
+        count: Number of words to retrieve (default 5, max 50).
+        min_frequency: If provided, only returns words with frequency >= this value.
+                       Higher frequency generally means more common/important words.
+    """
     rate_error = _rate_limiter.check()
     if rate_error:
         return _make_response(False, error=rate_error)
