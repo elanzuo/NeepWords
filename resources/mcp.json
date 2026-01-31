@@ -5,13 +5,13 @@
       "args": [
         "run",
         "--project",
-        "/Users/map/codes/neep-2027/NeepWordExtractor",
+        "<ProjectPath>",
         "python",
         "-m",
         "neep_mcp.server"
       ],
       "env": {
-        "NEEP_WORDS_DB_PATH": "/Users/map/codes/neep-2027/NeepWordExtractor/resources/data/words.sqlite3"
+        "NEEP_WORDS_DB_PATH": "<ProjectPath>/resources/data/words.sqlite3"
       }
     }
   }

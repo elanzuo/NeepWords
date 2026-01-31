@@ -14,7 +14,7 @@
 
 ## 提取词汇 CLI
 
-<img src="resources/img/ocr.png" alt="OCR 示例截图" width="520">
+<img src="resources/img/ocr.png" alt="OCR 示例截图" width="768">
 
 ### 提取词汇（主命令）
 
@@ -121,7 +121,7 @@ uv run word_extractor export-csv --csv-path output/2026-01-26-source.csv --colum
 
 本项目提供 MCP server（`neep_mcp`），用于只读查询 `resources/data/words.sqlite3` 中的词库数据，便于 AI 助手在本地获取权威词表信息。
 
-<img src="resources/img/mcp.png" alt="MCP 示例截图" width="520">
+<img src="resources/img/mcp.png" alt="MCP 示例截图" width="768">
 
 ### Tools
 
@@ -144,6 +144,29 @@ uv run python -m neep_mcp.server
 
 ```bash
 NEEP_WORDS_DB_PATH=/path/to/words.sqlite3
+```
+
+mcp 配置：
+
+```json
+{
+  "mcpServers": {
+    "neep-words": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "<ProjectPath>",
+        "python",
+        "-m",
+        "neep_mcp.server"
+      ],
+      "env": {
+        "NEEP_WORDS_DB_PATH": "<ProjectPath>/resources/data/words.sqlite3"
+      }
+    }
+  }
+}
 ```
 
 ## 技术栈
