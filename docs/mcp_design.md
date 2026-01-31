@@ -30,14 +30,21 @@
 * **场景**: 用户问“这些词 ['ambiguous', 'derive', 'inevitable'] 在考研大纲里吗？它们的音标是什么？”
 
 #### B. `search_words`
-* **描述**: 模糊搜索单词。支持前缀匹配或包含匹配。
+* **描述**: 模糊搜索单词。支持前缀/后缀/包含/模糊/通配符匹配。
 * **参数**:
   * `query` (string, required): 搜索关键词。
-  * `mode` (string, optional): `prefix` | `contains` | `fuzzy`，默认 `prefix`。
+  * `mode` (string, optional): `prefix` | `suffix` | `contains` | `fuzzy` | `wildcard`，默认 `contains`。
   * `limit` (integer, optional): 返回结果数量限制，默认 10，最大 200。
   * `offset` (integer, optional): 默认 0。
-* **返回**: 匹配的单词列表。
+* **返回**: 匹配的单词列表（每项仅包含 `word` 字段）。
 * **场景**: 用户问“考研大纲里有哪些以 'trans' 开头的单词？”
+* **模式区别**:
+  * `prefix`: 词首匹配（如 `trans` -> `transmit`, `transfer`）。
+  * `suffix`: 词尾匹配（如 `tion` -> `information`, `formation`）。
+  * `contains`: 词中包含（如 `vert` -> `convert`, `invert`）。
+  * `fuzzy`: 字符序列匹配（如 `tst` -> `test`, `tset` 不匹配）。
+  * `wildcard`: SQL LIKE 风格通配符，支持 `%`（任意长度）和 `_`（单字符）。
+    - 示例：`%vert`（以 vert 结尾）、`in%tion`（in 开头、tion 结尾）、`re____`（re + 4 个任意字符）。
 
 #### C. `get_random_words`
 * **描述**: 随机获取考研单词。可用于生成测验或每日单词。
