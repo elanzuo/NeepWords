@@ -55,13 +55,13 @@ def _normalize_words(
     return normalized
 
 
-def _normalize_word_value(word: str) -> str:
+def _canonicalize_word(word: str) -> str:
     normalized = re.sub(r"\s+", " ", word.strip())
     return normalized.lower()
 
 
 def _compute_stats(words: list[dict[str, object]]) -> dict[str, object]:
-    word_values = [str(item.get("word", "")).strip() for item in words]
+    word_values = [_canonicalize_word(str(item.get("word", ""))) for item in words]
     total_count = len(word_values)
     unique_count = len(set(word_values))
     duplicate_count = total_count - unique_count
@@ -82,36 +82,61 @@ def _compute_stats(words: list[dict[str, object]]) -> dict[str, object]:
 
 def _write_words_db(
     db_path: Path,
-    rows: Sequence[tuple[str, str, str | None, str | None]],
+    rows: Sequence[tuple[str, str | None]],
 ) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(db_path) as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS words (
-                id INTEGER PRIMARY KEY,
-                word TEXT NOT NULL,
-                norm TEXT NOT NULL UNIQUE,
-                source TEXT,
-                ipa TEXT,
-                frequency INTEGER NOT NULL DEFAULT 1,
-                created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-                updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-            )
-            """
-        )
+        _ensure_words_table_schema(conn)
         conn.executemany(
             """
-            INSERT INTO words (word, norm, source, ipa)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(norm) DO UPDATE SET
-                source=excluded.source,
-                ipa=excluded.ipa,
-                frequency=words.frequency + 1,
-                updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+            INSERT INTO words (word, source)
+            VALUES (?, ?)
+            ON CONFLICT(word) DO UPDATE SET
+                source=COALESCE(words.source, excluded.source)
             """,
             rows,
         )
+
+
+def _ensure_words_table_schema(conn: sqlite3.Connection) -> None:
+    columns = conn.execute("PRAGMA table_info(words)").fetchall()
+    if not columns:
+        conn.execute(
+            """
+            CREATE TABLE words (
+                id INTEGER PRIMARY KEY,
+                word TEXT NOT NULL UNIQUE,
+                source TEXT,
+                added_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+            )
+            """
+        )
+        return
+
+    column_names = [row[1] for row in columns]
+    if column_names == ["id", "word", "source", "added_at"]:
+        return
+
+    conn.execute(
+        """
+        CREATE TABLE words_migrated (
+            id INTEGER PRIMARY KEY,
+            word TEXT NOT NULL UNIQUE,
+            source TEXT,
+            added_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        )
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO words_migrated (id, word, source, added_at)
+        SELECT id, lower(trim(word)), source, COALESCE(created_at, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        FROM words
+        ORDER BY id
+        """
+    )
+    conn.execute("DROP TABLE words")
+    conn.execute("ALTER TABLE words_migrated RENAME TO words")
 
 
 def add_words_to_db(
@@ -123,19 +148,16 @@ def add_words_to_db(
     """Insert words into the sqlite database and return stats."""
     normalized = _normalize_words(words)
     accepted: list[dict[str, object]] = []
-    rows: list[tuple[str, str, str | None, str | None]] = []
+    rows: list[tuple[str, str | None]] = []
     for item in normalized:
-        word = str(item.get("word", "")).strip()
+        word = _canonicalize_word(str(item.get("word", "")))
         if not word:
             continue
-        norm = _normalize_word_value(word)
         source_value = item.get("source")
         if source_value is None or not str(source_value).strip():
             source_value = source
         source_text = str(source_value).strip() if source_value is not None else None
-        ipa_value = item.get("ipa")
-        ipa = str(ipa_value).strip() if ipa_value is not None else None
-        rows.append((word, norm, source_text, ipa))
+        rows.append((word, source_text))
         accepted.append({"word": word, "source": source_text})
 
     if rows:
@@ -188,17 +210,14 @@ def write_outputs(
         accepted = [item for item in normalized if str(item.get("word", "")).strip()]
 
     words_db = output_path / "words.sqlite3"
-    rows: list[tuple[str, str, str | None, str | None]] = []
+    rows: list[tuple[str, str | None]] = []
     for item in accepted:
-        word = str(item.get("word", "")).strip()
+        word = _canonicalize_word(str(item.get("word", "")))
         if not word:
             continue
-        norm = _normalize_word_value(word)
         source_value = item.get("source")
         source = str(source_value).strip() if source_value is not None else None
-        ipa_value = item.get("ipa")
-        ipa = str(ipa_value).strip() if ipa_value is not None else None
-        rows.append((word, norm, source, ipa))
+        rows.append((word, source))
 
     if rows:
         _write_words_db(words_db, rows)

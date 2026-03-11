@@ -41,7 +41,7 @@ def _build_parser() -> argparse.ArgumentParser:
     lookup.add_argument("words", nargs="+", help="Words to look up.")
     lookup.add_argument(
         "--match",
-        choices=["auto", "word", "norm"],
+        choices=["auto", "word"],
         default="auto",
         help="Matching strategy (default: auto).",
     )
@@ -61,12 +61,6 @@ def _build_parser() -> argparse.ArgumentParser:
 
     random = subparsers.add_parser("random", help="Return random words from the lexicon.")
     random.add_argument("--count", type=int, default=5, help="Number of words to return.")
-    random.add_argument(
-        "--min-frequency",
-        type=int,
-        default=None,
-        help="Only include words with frequency >= this value.",
-    )
     _add_shared_args(random)
 
     return parser
@@ -84,12 +78,11 @@ def _format_lookup(results: list[dict[str, Any]], warnings: list[str]) -> str:
         parts = [
             f"{row['input']}: found",
             f"word={row['word']}",
-            f"norm={row['norm']}",
         ]
-        if row.get("ipa"):
-            parts.append(f"ipa={row['ipa']}")
-        if row.get("frequency") is not None:
-            parts.append(f"frequency={row['frequency']}")
+        if row.get("source"):
+            parts.append(f"source={row['source']}")
+        if row.get("added_at"):
+            parts.append(f"added_at={row['added_at']}")
         lines.append(" | ".join(parts))
     return "\n".join(lines)
 
@@ -107,13 +100,13 @@ def _format_search(data: dict[str, Any], warnings: list[str]) -> str:
 
 
 def _format_random(data: dict[str, Any]) -> str:
-    lines = [f"count={data['count']} min_frequency={data['min_frequency']}"]
+    lines = [f"count={data['count']}"]
     for row in data["results"]:
         parts = [row["word"]]
-        if row.get("ipa"):
-            parts.append(f"ipa={row['ipa']}")
-        if row.get("frequency") is not None:
-            parts.append(f"frequency={row['frequency']}")
+        if row.get("source"):
+            parts.append(f"source={row['source']}")
+        if row.get("added_at"):
+            parts.append(f"added_at={row['added_at']}")
         lines.append(" | ".join(parts))
     return "\n".join(lines)
 
@@ -151,7 +144,7 @@ def main() -> int:
                 print(_format_search(data, warnings))
             return 0
 
-        data = lexicon.get_random_words(count=args.count, min_frequency=args.min_frequency)
+        data = lexicon.get_random_words(count=args.count)
         response = {"ok": True, "data": data, "warnings": []}
         if args.json:
             _print_json(response)
