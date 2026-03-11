@@ -32,12 +32,13 @@ The CLI resolves the database in this order:
 
 1. `--db-path`
 2. `NEEP_WORDS_DB_PATH`
-3. `NEEP_WORDS_DB`
-4. `neep.toml` -> `[words].db_path`
-5. `resources/data/words.sqlite3`
+3. `neep.toml` -> `[words].db_path`
+4. `output/words.sqlite3`
+5. `resources/examples/words.sqlite3`
 
-If the user is asking about the repository's checked-in lexicon, use the default resolution.
-If the user is asking about freshly extracted output from the pipeline, pass `--db-path output/words.sqlite3`.
+By default, query commands prefer the user's extracted working database in `output/words.sqlite3`.
+If that file does not exist, they fall back to the repository's read-only seed database in `resources/examples/words.sqlite3`.
+If the user is asking about a non-default extraction target, pass `--db-path` explicitly.
 
 ## Version selection
 

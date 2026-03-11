@@ -114,6 +114,7 @@ def _write_words_db(
             [(version_id, word, source) for word, source in rows],
         )
 
+
 def add_words_to_db(
     words: Iterable[str | Mapping[str, object]],
     *,

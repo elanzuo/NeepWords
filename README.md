@@ -38,6 +38,7 @@ uv run word_extractor --pdf resources/pdfs/26考研英语一考试大纲.pdf \
 - `uv sync` 会安装项目命令入口 `word_extractor`
 - CLI 页码为 1-based
 - `--version` 必填，支持 `2026`、`26`、`2026考研` 这类写法
+- 提取命令默认将数据库写入 `output/words.sqlite3`
 
 拼写检查示例：
 
@@ -47,12 +48,6 @@ uv run word_extractor --pdf resources/pdfs/26考研英语一考试大纲.pdf \
   --end-page 147 \
   --version 2026 \
   --no-spellcheck
-
-uv run word_extractor --pdf resources/pdfs/26考研英语一考试大纲.pdf \
-  --start-page 146 \
-  --end-page 147 \
-  --version 2026 \
-  --spellcheck-rejected db
 ```
 
 调试输出：
@@ -82,6 +77,11 @@ uv run word_extractor --pdf resources/pdfs/26考研英语一考试大纲.pdf \
 - `--spellcheck-language`：拼写检查语言，可重复
 - `--split-offset`：双栏分割偏移
 
+数据库路径约定：
+
+- `output/words.sqlite3`：用户实际工作库，提取命令默认写入这里
+- `resources/examples/words.sqlite3`：仓库可附带的只读示例库，仅用于开箱即用查询演示
+
 ### 添加词汇（add-words）
 
 用于复核 `rejected_words.csv` 后手动入库：
@@ -91,7 +91,10 @@ uv run word_extractor add-words \
   --db-path output/words.sqlite3 \
   --version 2026 \
   --entry "endeavour:26考研英语一考试大纲-81-L-2-endeavour" \
-  --entry "favourite:26考研英语一考试大纲-86-L-8-favourite"
+  --entry "favourite:26考研英语一考试大纲-86-L-8-favourite" \
+  --entry "humourous:26考研英语一考试大纲-97-R-4-humo(u)rous" \
+  --entry "gasolene:26考研英语一考试大纲-123-L-6-petrol / gasoline / gasolene" \
+  --entry "policewoman:26考研英语一考试大纲-125-L-3-policeman / policewoman"
 ```
 
 参数：
@@ -182,6 +185,16 @@ NEEP_WORDS_DB_PATH=/path/to/words.sqlite3
 NEEP_WORDS_VERSION=2027
 ```
 
+默认数据库解析顺序：
+
+1. `--db-path` 或 MCP 客户端显式配置
+2. `NEEP_WORDS_DB_PATH`
+3. `neep.toml` 中 `[words].db_path`
+4. `output/words.sqlite3`
+5. `resources/examples/words.sqlite3`
+
+也就是说，查询入口会优先使用你的工作库；只有工作库不存在时，才会回退到仓库附带的示例库。
+
 MCP 配置示例：
 
 ```json
@@ -198,7 +211,7 @@ MCP 配置示例：
         "neep_mcp.server"
       ],
       "env": {
-        "NEEP_WORDS_DB_PATH": "<ProjectPath>/resources/data/words.sqlite3",
+        "NEEP_WORDS_DB_PATH": "<ProjectPath>/output/words.sqlite3",
         "NEEP_WORDS_VERSION": "2027"
       }
     }
@@ -218,9 +231,9 @@ uv run python skills/neep-vocab/scripts/neep_vocab.py set-default-version --json
 ```
 
 - skill 目录：`skills/neep-vocab/`
-- 数据库解析顺序：`--db-path` -> `NEEP_WORDS_DB_PATH` -> `NEEP_WORDS_DB` -> `neep.toml` -> `resources/data/words.sqlite3`
+- 数据库解析顺序：`--db-path` -> `NEEP_WORDS_DB_PATH` -> `neep.toml` -> `output/words.sqlite3` -> `resources/examples/words.sqlite3`
 - 版本解析顺序：`--version` -> `NEEP_WORDS_VERSION` -> `neep.toml` -> 数据库默认版本 -> 唯一版本
-- `set-default-version` 会修改数据库默认版本，影响后续未显式指定版本的查询
+- `set-default-version` 会修改工作数据库默认版本，影响后续未显式指定版本的查询
 
 ## 技术栈
 

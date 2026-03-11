@@ -46,6 +46,7 @@
 
 ### 5) 输出与校验
 - 主要输出：`output/words.sqlite3`（表 `words`，含 `word/source/added_at`）
+- 开箱即用查询可附带只读示例库：`resources/examples/words.sqlite3`
 - 拼写检查：默认启用 macOS Cocoa (`NSSpellChecker`) 过滤
   - 通过检查的单词进入 SQLite
   - 未通过默认写入 `output/rejected_words.csv`（列：`word/reason/source/page/column/line`）

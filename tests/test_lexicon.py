@@ -52,7 +52,9 @@ def test_search_words_supports_explicit_version(lexicon: WordsLexicon):
     assert {item["word"] for item in payload["results"]} == {"formation"}
 
 
-def test_build_lexicon_uses_env_default_version(sample_words_db: Path, monkeypatch: pytest.MonkeyPatch):
+def test_build_lexicon_uses_env_default_version(
+    sample_words_db: Path, monkeypatch: pytest.MonkeyPatch
+):
     monkeypatch.setenv("NEEP_WORDS_DB_PATH", os.fspath(sample_words_db))
     monkeypatch.setenv("NEEP_WORDS_VERSION", "27考研")
 

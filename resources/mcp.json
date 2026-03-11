@@ -11,7 +11,7 @@
         "neep_mcp.server"
       ],
       "env": {
-        "NEEP_WORDS_DB_PATH": "<ProjectPath>/resources/data/words.sqlite3"
+        "NEEP_WORDS_DB_PATH": "<ProjectPath>/resources/examples/words.sqlite3"
       }
     }
   }
