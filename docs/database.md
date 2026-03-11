@@ -1,6 +1,8 @@
 # 数据库设计（SQLite）
 
-输出文件：`output/words.sqlite3`
+运行时输出数据库：`output/words.sqlite3`
+
+仓库可附带只读示例数据库：`resources/examples/words.sqlite3`
 
 当前采用“单库多版本”设计，同一个 SQLite 可以同时保存 `2026`、`2027` 等多个考研词表版本。
 
@@ -51,9 +53,26 @@
 
 ```toml
 [words]
-db_path = "resources/data/words.sqlite3"
+db_path = "output/words.sqlite3"
 default_version = "2027"
 ```
+
+## 数据库路径解析优先级
+
+查询入口（skill、MCP、本地 lookup/search CLI）按以下顺序决定数据库路径：
+
+1. 显式参数，如 `--db-path`
+2. 环境变量 `NEEP_WORDS_DB_PATH`
+3. 仓库根目录 `neep.toml` 中 `[words].db_path`
+4. `output/words.sqlite3`
+5. `resources/examples/words.sqlite3`
+
+其中：
+
+- `output/words.sqlite3` 是用户实际工作库，提取命令默认写入这里。
+- `resources/examples/words.sqlite3` 是仓库附带的只读种子库，仅用于开箱即用查询演示。
+
+写入或修改数据库的命令默认仍以 `output/words.sqlite3` 为目标，不会自动回退到示例库。
 
 ## 导入规则
 

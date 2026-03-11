@@ -122,7 +122,9 @@ class WordsLexicon:
         self.path = path
         self.configured_version = configured_version
 
-    def _resolve_version(self, conn: sqlite3.Connection, *, version: str | None) -> ResolvedVersion | None:
+    def _resolve_version(
+        self, conn: sqlite3.Connection, *, version: str | None
+    ) -> ResolvedVersion | None:
         schema_mode = detect_schema_mode(conn)
         if schema_mode == "legacy":
             if version is not None or self.configured_version is not None:

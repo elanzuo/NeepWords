@@ -9,7 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-DEFAULT_DB_PATH = Path("resources") / "data" / "words.sqlite3"
+DEFAULT_RUNTIME_DB_PATH = Path("output") / "words.sqlite3"
+DEFAULT_EXAMPLE_DB_PATH = Path("resources") / "examples" / "words.sqlite3"
 SETTINGS_FILE_NAME = "neep.toml"
 
 
@@ -71,23 +72,75 @@ def load_words_settings(start: Path | None = None) -> tuple[dict[str, Any], Path
     return {}, settings_path
 
 
+def _default_base_dir(start: Path | None = None, settings_path: Path | None = None) -> Path:
+    if settings_path is not None:
+        return settings_path.parent.resolve()
+    return (start or Path.cwd()).resolve()
+
+
+def _resolve_repo_path(path: Path, *, base_dir: Path) -> Path:
+    if path.is_absolute():
+        return path
+    return (base_dir / path).resolve()
+
+
+def _resolve_configured_db_path(
+    settings: dict[str, Any],
+    *,
+    settings_path: Path | None,
+) -> Path | None:
+    config_value = settings.get("db_path")
+    if not isinstance(config_value, str) or not config_value.strip():
+        return None
+
+    configured = Path(config_value.strip())
+    if not configured.is_absolute() and settings_path is not None:
+        return (settings_path.parent / configured).resolve()
+    return configured
+
+
 def resolve_db_path(explicit: str | Path | None = None, *, start: Path | None = None) -> Path:
     if explicit is not None:
         return Path(explicit)
 
-    env_value = os.environ.get("NEEP_WORDS_DB_PATH") or os.environ.get("NEEP_WORDS_DB")
+    env_value = os.environ.get("NEEP_WORDS_DB_PATH")
     if env_value:
         return Path(env_value)
 
     settings, settings_path = load_words_settings(start)
-    config_value = settings.get("db_path")
-    if isinstance(config_value, str) and config_value.strip():
-        configured = Path(config_value.strip())
-        if not configured.is_absolute() and settings_path is not None:
-            return (settings_path.parent / configured).resolve()
+    configured = _resolve_configured_db_path(settings, settings_path=settings_path)
+    if configured is not None:
         return configured
 
-    return DEFAULT_DB_PATH
+    base_dir = _default_base_dir(start, settings_path)
+    runtime_db = _resolve_repo_path(DEFAULT_RUNTIME_DB_PATH, base_dir=base_dir)
+    if runtime_db.exists():
+        return runtime_db
+
+    example_db = _resolve_repo_path(DEFAULT_EXAMPLE_DB_PATH, base_dir=base_dir)
+    if example_db.exists():
+        return example_db
+
+    return runtime_db
+
+
+def resolve_writable_db_path(
+    explicit: str | Path | None = None, *, start: Path | None = None
+) -> Path:
+    if explicit is not None:
+        return Path(explicit)
+
+    env_value = os.environ.get("NEEP_WORDS_DB_PATH")
+    if env_value:
+        return Path(env_value)
+
+    settings, settings_path = load_words_settings(start)
+    configured = _resolve_configured_db_path(settings, settings_path=settings_path)
+    if configured is not None:
+        return configured
+
+    base_dir = _default_base_dir(start, settings_path)
+    return _resolve_repo_path(DEFAULT_RUNTIME_DB_PATH, base_dir=base_dir)
 
 
 def resolve_configured_version(start: Path | None = None) -> tuple[str | None, str | None]:
@@ -162,12 +215,8 @@ def ensure_versioned_schema(conn: sqlite3.Connection) -> None:
         )
         """
     )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_words_version_word ON words(version_id, word)"
-    )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_words_word ON words(word)"
-    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_words_version_word ON words(version_id, word)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_words_word ON words(word)")
 
 
 def migrate_legacy_schema(
@@ -240,14 +289,14 @@ def migrate_legacy_schema(
     )
     conn.execute("DROP TABLE words")
     conn.execute("ALTER TABLE words_migrated RENAME TO words")
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_words_version_word ON words(version_id, word)"
-    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_words_version_word ON words(version_id, word)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_words_word ON words(word)")
     return "migrated"
 
 
-def ensure_writable_schema(conn: sqlite3.Connection, *, legacy_version: str | int | None = None) -> None:
+def ensure_writable_schema(
+    conn: sqlite3.Connection, *, legacy_version: str | int | None = None
+) -> None:
     schema_mode = detect_schema_mode(conn)
     if schema_mode == "missing":
         ensure_versioned_schema(conn)

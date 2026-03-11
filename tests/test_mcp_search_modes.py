@@ -139,7 +139,7 @@ def test_search_words_wildcard_matches_contains_equivalent():
     reason="set NEEP_PERF_TEST=1 to run perf comparison",
 )
 def test_search_words_performance_comparison():
-    os.environ.setdefault("NEEP_WORDS_DB_PATH", "resources/data/words.sqlite3")
+    os.environ.setdefault("NEEP_WORDS_DB_PATH", "resources/examples/words.sqlite3")
 
     modes = {
         "prefix": (["trans", "inter", "pre", "con"], 40),

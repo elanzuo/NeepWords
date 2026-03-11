@@ -16,12 +16,15 @@
 - PDF -> image rendering -> crop/split -> OCR -> normalize/expand -> spellcheck -> output.
 - Spellcheck: Cocoa `NSSpellChecker` by default. Failures go to `output/rejected_words.csv` unless configured to write into DB.
 - Outputs:
-  - SQLite: `output/words.sqlite3` table `words` (`word/source/added_at`), where `word` is stored in canonical lowercase form and is unique.
+  - SQLite: `output/words.sqlite3` with `vocab_versions` and `words` tables. `words` stores canonical lowercase words and is unique per `(version_id, word)`.
   - CSV (optional): `output/rejected_words.csv` columns `word/reason/source/page/column/line`.
   - CSV exports: `output/YYYY-MM-DD.csv` via `export-csv`.
+  - Version selection for queries/imports supports explicit parameter, env var, config file, and DB default resolution.
 
 ## Build, Test, and Development Commands
 - `python -m word_extractor --help` shows CLI usage.
+- `python -m word_extractor list-versions --db-path output/words.sqlite3` lists stored vocabulary versions.
+- `python -m word_extractor set-default-version --db-path output/words.sqlite3 --version 2027` switches the DB default version.
 - `python -m neep_mcp.server` starts the MCP server.
 - `uv run pytest -q` runs the test suite.
 - Use `uv` as the project manager; install dependencies with `uv add` by default.
@@ -50,3 +53,4 @@
 - Image processing: `PIL` for header/footer cropping and vertical split into left/right columns.
 - OCR engine: `ocrmac` (Apple Vision) as the primary OCR backend.
 - MCP server: `mcp` (FastMCP) for read-only word queries.
+- Skill CLI: `skills/neep-vocab/scripts/neep_vocab.py` for local lookup, version listing, and default-version switching without MCP.

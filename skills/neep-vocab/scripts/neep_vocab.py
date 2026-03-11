@@ -16,7 +16,12 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from neep_mcp.lexicon import build_lexicon, resolve_db_path  # noqa: E402
-from word_extractor.storage import detect_schema_mode, list_versions, set_default_version  # noqa: E402
+from word_extractor.storage import (  # noqa: E402
+    detect_schema_mode,
+    list_versions,
+    resolve_writable_db_path,
+    set_default_version,
+)
 
 
 def _add_shared_args(parser: argparse.ArgumentParser) -> None:
@@ -160,11 +165,12 @@ def _format_versions(data: dict[str, Any]) -> str:
 
 def main() -> int:
     args = _build_parser().parse_args()
-    db_path = resolve_db_path(args.db_path, start=Path.cwd())
-    lexicon = build_lexicon(db_path, start=Path.cwd())
 
     try:
         if args.command == "list-versions":
+            db_path = resolve_db_path(args.db_path, start=Path.cwd())
+            if not db_path.exists():
+                raise FileNotFoundError
             with sqlite3.connect(db_path) as conn:
                 schema_mode = detect_schema_mode(conn)
                 if schema_mode == "missing":
@@ -188,6 +194,9 @@ def main() -> int:
             return 0
 
         if args.command == "set-default-version":
+            db_path = resolve_writable_db_path(args.db_path, start=Path.cwd())
+            if not db_path.exists():
+                raise FileNotFoundError
             with sqlite3.connect(db_path) as conn:
                 data = set_default_version(conn, args.version)
             response = {"ok": True, "data": data, "warnings": []}
@@ -196,6 +205,9 @@ def main() -> int:
             else:
                 print(f"default_version={data['version']}")
             return 0
+
+        db_path = resolve_db_path(args.db_path, start=Path.cwd())
+        lexicon = build_lexicon(db_path, start=Path.cwd())
 
         if args.command == "lookup":
             data, warnings = lexicon.lookup_words(args.words, match=args.match, version=args.version)
