@@ -294,10 +294,11 @@ uv run python skills/neep-vocab/scripts/neep_vocab.py list-versions --json
 uv run python skills/neep-vocab/scripts/neep_vocab.py set-default-version --json --version 2027
 ```
 
-- skill 目录：`skills/neep-vocab/`
+- skill 目录：`skills/neep-vocab/`，同时覆盖本地查询与显式默认版本切换
 - 数据库解析顺序：`--db-path` -> `NEEP_WORDS_DB_PATH` -> `neep.toml` -> `output/words.sqlite3` -> `resources/examples/words.sqlite3`
 - 版本解析顺序：`--version` -> `NEEP_WORDS_VERSION` -> `neep.toml` -> 数据库默认版本 -> 唯一版本
-- `set-default-version` 会修改工作数据库默认版本，影响后续未显式指定版本的查询
+- 成功 JSON 统一返回：`command`、`ok`、`data`、`warnings`、`error`
+- `set-default-version` 会修改工作数据库默认版本，影响后续未显式指定版本的查询；只有在用户明确要求修改默认版本时才应触发该命令
 
 ## 技术栈
 

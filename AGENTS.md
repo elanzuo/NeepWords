@@ -53,4 +53,4 @@
 - Image processing: `PIL` for header/footer cropping and vertical split into left/right columns.
 - OCR engine: `ocrmac` (Apple Vision) as the primary OCR backend.
 - MCP server: `mcp` (FastMCP) for read-only word queries.
-- Skill CLI: `skills/neep-vocab/scripts/neep_vocab.py` for local lookup, version listing, and default-version switching without MCP.
+- Skill CLI: `skills/neep-vocab/scripts/neep_vocab.py` for local lookup, version listing, and default-version switching without MCP. Use `skills/neep-vocab/` for both read operations and explicit default-version changes.

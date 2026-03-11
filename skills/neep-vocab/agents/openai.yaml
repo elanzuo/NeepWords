@@ -1,4 +1,4 @@
 interface:
   display_name: "NEEP Vocab"
-  short_description: "Local NEEP word lookup and search"
-  default_prompt: "Use $neep-vocab to check whether words are in the local NEEP list or search the lexicon."
+  short_description: "Local NEEP lookup and default-version admin"
+  default_prompt: "Use $neep-vocab for local word lookup, search, version inspection, and only when explicitly requested, changing the default version stored in the local SQLite database."
