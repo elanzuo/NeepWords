@@ -169,6 +169,23 @@ mcp 配置：
 }
 ```
 
+## Agent Skill
+
+如果你在 Codex 类代理环境中使用本仓库，也可以直接通过内置 skill 查询本地词库，而不经过 MCP：
+
+```bash
+uv run python skills/neep-vocab/scripts/neep_vocab.py lookup --json abandon derive inevitable
+uv run python skills/neep-vocab/scripts/neep_vocab.py search --json --mode prefix trans
+uv run python skills/neep-vocab/scripts/neep_vocab.py random --json --count 5 --min-frequency 2
+```
+
+- skill 目录：`skills/neep-vocab/`
+- 默认数据库：`resources/data/words.sqlite3`
+- 支持 `lookup` / `search` / `random`
+- 可通过 `--db-path` 或环境变量 `NEEP_WORDS_DB_PATH` 覆盖
+
+这个方案适合高频、低复杂度的本地词库访问，能减少工具描述与协议层带来的 token 开销。
+
 ## 技术栈
 
 - PDF 渲染：pypdfium2
