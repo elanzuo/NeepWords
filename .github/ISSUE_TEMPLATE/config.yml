@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Reports
+    url: https://github.com/elanzuo/NeepWords/security/advisories/new
+    about: Please report security vulnerabilities through GitHub private reporting when available.

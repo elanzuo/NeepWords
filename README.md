@@ -1,20 +1,84 @@
 # NeepWords
 
-一个用于从扫描版考研英语《考试大纲》PDF 中提取词汇的 Python OCR 工具，并内置 MCP server 与本地 skill 供 AI 助手查询词库，针对 macOS Apple Silicon 优化。
+NeepWords 是一个面向考研英语词表场景的本地工具集，用来解决两个实际问题：
 
-项目现在支持“单库多版本”词表管理：同一个 SQLite 可以同时存放 `2026`、`2027`、`2028` 等多个考研版本。
+- AI 助手无法可靠判断某个单词是否属于考研大纲词汇。
+- 用户很难快速查找“符合某个特征”的考研单词，例如前缀、后缀、包含、模糊匹配或通配符匹配。
 
-## 目录
+项目提供三类能力：
 
-- [提取词汇 CLI](#提取词汇-cli)
-  - [提取词汇（主命令）](#提取词汇主命令)
-  - [添加词汇（add-words）](#添加词汇add-words)
-  - [导出词表（export-csv）](#导出词表export-csv)
-  - [迁移与版本管理](#迁移与版本管理)
-  - [原理与流程](#原理与流程)
-- [MCP Server](#mcp-server)
-- [Agent Skill](#agent-skill)
-- [技术栈](#技术栈)
+- OCR 提取：从扫描版《考试大纲》PDF 中抽取词汇，写入本地 SQLite。
+- 词表查询与检索：通过 MCP server 或本地 skill，让 AI 助手基于本地词库回答“是不是考研词”，并支持前缀、后缀、包含、模糊匹配和通配符搜索。
+- 多版本管理：同一个 SQLite 可同时保存 `2026`、`2027`、`2028` 等多个考研版本。
+
+项目当前主要针对 macOS Apple Silicon 优化；其中 OCR 与 Cocoa 拼写检查依赖 macOS，查询能力可脱离 OCR 独立使用。
+
+## Quick Start
+
+### 1. 只做本地查询
+
+默认安装即可使用仓库附带的示例库做查询演示。
+
+注意：当前仓库附带的示例库是 legacy schema，用于开箱即用查询演示，不用于展示“单库多版本”能力。多版本管理示例请使用你自己的工作库，或先迁移旧库。
+
+```bash
+uv sync
+uv run python skills/neep-vocab/scripts/neep_vocab.py list-versions --json
+uv run python skills/neep-vocab/scripts/neep_vocab.py lookup --json transition
+uv run python skills/neep-vocab/scripts/neep_vocab.py search --json --mode prefix trans
+```
+
+你会看到类似结果：
+
+- `list-versions --json`：返回 `schema_mode: legacy` 和示例库词数
+- `lookup transition`：返回 `found: true`
+- `search --mode prefix trans`：返回 `transaction`、`transcend`、`transfer`、`transform` 等前缀匹配结果
+
+### 2. 在 macOS 上启用 OCR 提取
+
+OCR 与系统拼写检查依赖 macOS 原生能力，请安装可选 extra：
+
+```bash
+uv sync --extra macos
+uv run neepwords --pdf /path/to/outline.pdf \
+  --start-page 45 \
+  --end-page 165 \
+  --version 2027 \
+  --spellcheck-language en_GB \
+  --spellcheck-language en \
+  --split-offset -0.1
+```
+
+### 3. 启动 MCP server
+
+```bash
+uv sync
+uv run python -m neep_mcp.server
+```
+
+## 平台支持
+
+| 能力 | macOS | Linux / Windows |
+| --- | --- | --- |
+| SQLite 查询 | Supported | Supported |
+| MCP server | Supported | Supported |
+| 示例库演示 | Supported | Supported |
+| PDF OCR 提取 | Supported | Not supported |
+| Cocoa 拼写检查 | Supported | Not supported |
+
+## 数据与版权边界
+
+- 本仓库默认不附带原始《考试大纲》PDF。你需要自行准备合法取得的 PDF 文件。
+- 如果你将自己的提取结果、截图或数据库再次公开，请自行确认是否具备再分发权利。
+- `resources/examples/words.sqlite3` 仅用于开箱即用查询演示，不承诺是完整、官方或可商用再分发的考研词表发布物。
+- NeepWords 的“是否为考研词汇”判断标准，是本地数据库当前版本中是否存在该词；它不是对考试政策或官方定义的替代解释。
+
+## 安装与依赖
+
+- Python: `>= 3.13`
+- Package manager: `uv`
+- 默认安装：包含 SQLite、CLI、MCP、示例查询所需依赖
+- `macos` extra：额外安装 `ocrmac` 与 `pyobjc-framework-cocoa`，用于 OCR 提取与 Cocoa 拼写检查
 
 ## 提取词汇 CLI
 
@@ -23,8 +87,7 @@
 ### 提取词汇（主命令）
 
 ```bash
-uv sync
-uv run word_extractor --pdf resources/pdfs/26考研英语一考试大纲.pdf \
+uv run neepwords --pdf /path/to/outline.pdf \
   --start-page 45 \
   --end-page 165 \
   --version 2026 \
@@ -35,15 +98,16 @@ uv run word_extractor --pdf resources/pdfs/26考研英语一考试大纲.pdf \
 
 说明：
 
-- `uv sync` 会安装项目命令入口 `word_extractor`
+- `uv sync --extra macos` 会安装 OCR 与 macOS 拼写检查所需依赖
 - CLI 页码为 1-based
 - `--version` 必填，支持 `2026`、`26`、`2026考研` 这类写法
 - 提取命令默认将数据库写入 `output/words.sqlite3`
+- 为兼容旧脚本，仍保留入口别名 `word_extractor`
 
 拼写检查示例：
 
 ```bash
-uv run word_extractor --pdf resources/pdfs/26考研英语一考试大纲.pdf \
+uv run neepwords --pdf /path/to/outline.pdf \
   --start-page 146 \
   --end-page 147 \
   --version 2026 \
@@ -53,7 +117,7 @@ uv run word_extractor --pdf resources/pdfs/26考研英语一考试大纲.pdf \
 调试输出：
 
 ```bash
-uv run word_extractor --pdf resources/pdfs/26考研英语一考试大纲.pdf \
+uv run neepwords --pdf /path/to/outline.pdf \
   --start-page 45 \
   --end-page 45 \
   --version 2026 \
@@ -87,7 +151,7 @@ uv run word_extractor --pdf resources/pdfs/26考研英语一考试大纲.pdf \
 用于复核 `rejected_words.csv` 后手动入库：
 
 ```bash
-uv run word_extractor add-words \
+uv run neepwords add-words \
   --db-path output/words.sqlite3 \
   --version 2026 \
   --entry "endeavour:26考研英语一考试大纲-81-L-2-endeavour" \
@@ -107,7 +171,7 @@ uv run word_extractor add-words \
 ### 导出词表（export-csv）
 
 ```bash
-uv run word_extractor export-csv \
+uv run neepwords export-csv \
   --db-path output/words.sqlite3 \
   --csv-path output/2027.csv \
   --columns version,word,source \
@@ -126,19 +190,19 @@ uv run word_extractor export-csv \
 旧单版本库迁移：
 
 ```bash
-uv run word_extractor migrate-db --db-path output/words.sqlite3 --legacy-version 2026
+uv run neepwords migrate-db --db-path output/words.sqlite3 --legacy-version 2026
 ```
 
 查看库中版本：
 
 ```bash
-uv run word_extractor list-versions --db-path output/words.sqlite3
+uv run neepwords list-versions --db-path output/words.sqlite3
 ```
 
 切换数据库默认版本：
 
 ```bash
-uv run word_extractor set-default-version --db-path output/words.sqlite3 --version 2027
+uv run neepwords set-default-version --db-path output/words.sqlite3 --version 2027
 ```
 
 未显式指定版本时，解析顺序为：

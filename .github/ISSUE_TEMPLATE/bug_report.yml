@@ -1,0 +1,98 @@
+name: Bug Report
+description: Report a reproducible bug in NeepWords.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug.
+
+        Please provide a minimal, reproducible case. If the issue involves OCR, avoid attaching copyrighted PDFs or scanned page images unless you have the right to share them.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is wrong, and what did you expect instead?
+      placeholder: A clear and short description of the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction Steps
+      description: Exact steps to reproduce the problem.
+      placeholder: |
+        1. Run ...
+        2. Use ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the project is affected?
+      options:
+        - CLI
+        - MCP server
+        - SQLite / storage
+        - OCR pipeline
+        - Search / lookup
+        - Packaging / install
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: commands
+    attributes:
+      label: Commands and Output
+      description: Paste the exact command(s) and relevant output.
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: NeepWords Version
+      description: Package version, commit SHA, or branch name.
+      placeholder: 0.1.0 / main / commit SHA
+
+  - type: input
+    id: python
+    attributes:
+      label: Python Version
+      placeholder: "3.13.x"
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      placeholder: macOS 15 / Ubuntu 24.04 / Windows 11
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional Context
+      description: Add any extra context, notes, or screenshots that are safe to share.
