@@ -54,9 +54,8 @@ def lookup_words(words: Iterable[str], match: str | None = "auto") -> dict[str, 
     Args:
         words: List of words to query (e.g., ["abandon", "ability"]).
         match: Matching strategy:
-            - "auto" (default): Tries exact spelling match first, then falls back to normalized form (lemma).
+            - "auto" (default): Uses the normalized stored word form.
             - "word": strict exact spelling match.
-            - "norm": strict normalized form (lemma) match.
     """
     rate_error = _rate_limiter.check()
     if rate_error:
@@ -112,21 +111,19 @@ def search_words(
 
 
 @mcp.tool()
-def get_random_words(count: int | None = 5, min_frequency: int | None = None) -> dict[str, Any]:
+def get_random_words(count: int | None = 5) -> dict[str, Any]:
     """
     Get a random set of words from the syllabus, useful for quizzes or daily learning.
 
     Args:
         count: Number of words to retrieve (default 5, max 50).
-        min_frequency: If provided, only returns words with frequency >= this value.
-                       Higher frequency generally means more common/important words.
     """
     rate_error = _rate_limiter.check()
     if rate_error:
         return _make_response(False, error=rate_error)
 
     try:
-        data = _lexicon().get_random_words(count=count, min_frequency=min_frequency)
+        data = _lexicon().get_random_words(count=count)
     except FileNotFoundError:
         return _make_response(False, error="db_not_found")
     except ValueError as exc:

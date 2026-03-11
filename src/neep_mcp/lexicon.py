@@ -21,12 +21,8 @@ _WORD_RE = re.compile(r"[A-Za-z-]+")
 @dataclass
 class WordsQueryResult:
     word: str
-    norm: str
     source: str | None
-    ipa: str | None
-    frequency: int | None
-    created_at: str | None
-    updated_at: str | None
+    added_at: str | None
 
 
 class WordsDatabase:
@@ -116,12 +112,8 @@ def sanitize_wildcard(value: str) -> tuple[str | None, list[str]]:
 def _row_to_result(row: sqlite3.Row) -> WordsQueryResult:
     return WordsQueryResult(
         word=row["word"],
-        norm=row["norm"],
         source=row["source"],
-        ipa=row["ipa"],
-        frequency=row["frequency"],
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
+        added_at=row["added_at"],
     )
 
 
@@ -158,18 +150,7 @@ class WordsLexicon:
                     results.append({"input": original, "found": False, "error": "invalid_input"})
                     continue
 
-                if match_value == "word":
-                    row = conn.execute(
-                        "SELECT * FROM words WHERE lower(word) = ?", (cleaned,)
-                    ).fetchone()
-                elif match_value == "norm":
-                    row = conn.execute("SELECT * FROM words WHERE norm = ?", (cleaned,)).fetchone()
-                else:
-                    row = conn.execute(
-                        "SELECT * FROM words WHERE lower(word) = ?", (cleaned,)
-                    ).fetchone()
-                    if row is None:
-                        row = conn.execute("SELECT * FROM words WHERE norm = ?", (cleaned,)).fetchone()
+                row = conn.execute("SELECT * FROM words WHERE word = ?", (cleaned,)).fetchone()
 
                 if row is None:
                     results.append({"input": original, "query": cleaned, "found": False})
@@ -182,12 +163,8 @@ class WordsLexicon:
                         "query": cleaned,
                         "found": True,
                         "word": payload.word,
-                        "norm": payload.norm,
                         "source": payload.source,
-                        "ipa": payload.ipa,
-                        "frequency": payload.frequency,
-                        "created_at": payload.created_at,
-                        "updated_at": payload.updated_at,
+                        "added_at": payload.added_at,
                     }
                 )
 
@@ -235,7 +212,7 @@ class WordsLexicon:
             pattern = "%" + "%".join(cleaned) + "%"
 
         rows = self._db.fetch_all(
-            "SELECT * FROM words WHERE norm LIKE ? ORDER BY norm LIMIT ? OFFSET ?",
+            "SELECT * FROM words WHERE word LIKE ? ORDER BY word LIMIT ? OFFSET ?",
             (pattern, limit_value, offset_value),
         )
 
@@ -248,9 +225,7 @@ class WordsLexicon:
             "results": results,
         }, warnings
 
-    def get_random_words(
-        self, count: int | None = 5, min_frequency: int | None = None
-    ) -> dict[str, Any]:
+    def get_random_words(self, count: int | None = 5) -> dict[str, Any]:
         try:
             count_value = int(count or 5)
         except (TypeError, ValueError) as exc:
@@ -258,20 +233,8 @@ class WordsLexicon:
 
         count_value = max(1, min(count_value, MAX_RANDOM))
 
-        freq_value: int | None
-        if min_frequency is None:
-            freq_value = None
-        else:
-            try:
-                freq_value = max(1, int(min_frequency))
-            except (TypeError, ValueError) as exc:
-                raise ValueError("invalid_min_frequency") from exc
-
         sql = "SELECT * FROM words"
         params: list[Any] = []
-        if freq_value is not None:
-            sql += " WHERE frequency >= ?"
-            params.append(freq_value)
         sql += " ORDER BY RANDOM() LIMIT ?"
         params.append(count_value)
 
@@ -279,25 +242,21 @@ class WordsLexicon:
         results = [
             {
                 "word": row["word"],
-                "norm": row["norm"],
                 "source": row["source"],
-                "ipa": row["ipa"],
-                "frequency": row["frequency"],
-                "created_at": row["created_at"],
-                "updated_at": row["updated_at"],
+                "added_at": row["added_at"],
             }
             for row in rows
         ]
-        return {"count": count_value, "min_frequency": freq_value, "results": results}
+        return {"count": count_value, "results": results}
 
     def stats_summary(self) -> dict[str, Any]:
         with self._db.connect() as conn:
             total = conn.execute("SELECT COUNT(*) AS count FROM words").fetchone()
-            last_updated = conn.execute("SELECT MAX(updated_at) AS updated_at FROM words").fetchone()
+            last_added = conn.execute("SELECT MAX(added_at) AS added_at FROM words").fetchone()
 
         stats = {
             "total_words": total["count"] if total else 0,
-            "last_updated": last_updated["updated_at"] if last_updated else None,
+            "last_added": last_added["added_at"] if last_added else None,
         }
 
         rejected_csv = self.path.with_name("rejected_words.csv")
