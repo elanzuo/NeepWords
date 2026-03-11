@@ -21,7 +21,7 @@ def _content_text(item: Any) -> str:
 
 
 @pytest.mark.asyncio
-async def test_mcp_server_tools():
+async def test_mcp_server_tools(configured_words_db):
     """Test that the MCP server exposes the expected tools and they work."""
 
     # 定义服务器启动参数
@@ -31,8 +31,7 @@ async def test_mcp_server_tools():
         args=["-m", "neep_mcp.server"],
         env={
             **os.environ,
-            # 显式指定数据库路径，确保测试环境稳定
-            "NEEP_WORDS_DB_PATH": "resources/data/words.sqlite3",
+            "NEEP_WORDS_DB_PATH": os.fspath(configured_words_db),
         },
     )
 
@@ -47,16 +46,18 @@ async def test_mcp_server_tools():
             assert "lookup_words" in tool_names
             assert "search_words" in tool_names
             assert "get_random_words" in tool_names
+            assert "list_versions" in tool_names
 
             # 验证 Docstring 是否被正确解析为 description
             lookup_tool = next(t for t in tools_result.tools if t.name == "lookup_words")
             assert "Look up multiple words" in (lookup_tool.description or "")
             assert "match" in lookup_tool.inputSchema["properties"]
+            assert "version" in lookup_tool.inputSchema["properties"]
 
             # --- Test 2: Call lookup_words ---
             # 测试查找存在的词
             result = await session.call_tool(
-                "lookup_words", arguments={"words": ["abandon", "zxqjz_qwerty"]}
+                "lookup_words", arguments={"words": ["adaptive", "zxqjz_qwerty"], "version": "2027"}
             )
 
             data = _content_text(result.content[0])
@@ -67,12 +68,13 @@ async def test_mcp_server_tools():
             response = json.loads(data)
 
             assert response["ok"] is True
+            assert response["data"]["version"] == "2027"
             results = response["data"]["results"]
 
-            # 验证 "abandon" 找到了
-            found_abandon = next((r for r in results if r.get("query") == "abandon"), None)
-            assert found_abandon is not None
-            assert found_abandon["found"] is True
+            found_adaptive = next((r for r in results if r.get("query") == "adaptive"), None)
+            assert found_adaptive is not None
+            assert found_adaptive["found"] is True
+            assert found_adaptive["version"] == "2027"
 
             # 验证 "zxqjz_qwerty" 没找到
             # "zxqjz_qwerty" -> tokens: ["zxqjz", "qwerty"] -> max: "qwerty" (6 chars)
@@ -84,13 +86,25 @@ async def test_mcp_server_tools():
             if "error" not in not_found:
                 assert not_found["found"] is False
 
-            # --- Test 3: Call get_random_words ---
-            # Wait for rate limiter (default 0.5s)
             import asyncio
 
             await asyncio.sleep(0.6)
 
-            random_result = await session.call_tool("get_random_words", arguments={"count": 3})
+            versions_result = await session.call_tool("list_versions", arguments={})
+            versions_resp = json.loads(_content_text(versions_result.content[0]))
+            assert versions_resp["ok"] is True
+            assert versions_resp["data"]["schema_mode"] == "versioned"
+            assert [row["version"] for row in versions_resp["data"]["versions"]] == ["2026", "2027"]
+
+            # --- Test 3: Call get_random_words ---
+            # Wait for rate limiter (default 0.5s)
+            await asyncio.sleep(0.6)
+
+            random_result = await session.call_tool(
+                "get_random_words", arguments={"count": 3, "version": "2027"}
+            )
             random_resp = json.loads(_content_text(random_result.content[0]))
             assert random_resp["ok"] is True
+            assert random_resp["data"]["version"] == "2027"
             assert len(random_resp["data"]["results"]) == 3
+            assert all(item["version"] == "2027" for item in random_resp["data"]["results"])

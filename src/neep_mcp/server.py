@@ -9,7 +9,7 @@ from typing import Any, Iterable
 
 from mcp.server.fastmcp import FastMCP
 
-from neep_mcp.lexicon import WordsLexicon, resolve_db_path
+from neep_mcp.lexicon import WordsLexicon, build_lexicon
 
 DEFAULT_RATE_LIMIT_SECONDS = 0.5
 
@@ -43,11 +43,15 @@ def _make_response(
 
 
 def _lexicon() -> WordsLexicon:
-    return WordsLexicon(resolve_db_path())
+    return build_lexicon()
 
 
 @mcp.tool()
-def lookup_words(words: Iterable[str], match: str | None = "auto") -> dict[str, Any]:
+def lookup_words(
+    words: Iterable[str],
+    match: str | None = "auto",
+    version: str | None = None,
+) -> dict[str, Any]:
     """
     Look up multiple words in the NEEP (Postgraduate Entrance Exam) syllabus.
 
@@ -56,13 +60,14 @@ def lookup_words(words: Iterable[str], match: str | None = "auto") -> dict[str, 
         match: Matching strategy:
             - "auto" (default): Uses the normalized stored word form.
             - "word": strict exact spelling match.
+        version: Optional vocabulary version such as "2027" or "27考研".
     """
     rate_error = _rate_limiter.check()
     if rate_error:
         return _make_response(False, error=rate_error)
 
     try:
-        data, warnings = _lexicon().lookup_words(words, match=match)
+        data, warnings = _lexicon().lookup_words(words, match=match, version=version)
     except FileNotFoundError:
         return _make_response(False, error="db_not_found")
     except ValueError as exc:
@@ -79,6 +84,7 @@ def search_words(
     mode: str | None = "contains",
     limit: int | None = 10,
     offset: int | None = 0,
+    version: str | None = None,
 ) -> dict[str, Any]:
     """
     Search for words in the syllabus using prefix, substring, or fuzzy matching.
@@ -93,13 +99,20 @@ def search_words(
             - "wildcard": SQL LIKE pattern with %, _ (e.g., "in%tion" -> "information").
         limit: Max number of results to return (default 10, max 200).
         offset: Pagination offset.
+        version: Optional vocabulary version such as "2027" or "27考研".
     """
     rate_error = _rate_limiter.check()
     if rate_error:
         return _make_response(False, error=rate_error)
 
     try:
-        data, warnings = _lexicon().search_words(query=query, mode=mode, limit=limit, offset=offset)
+        data, warnings = _lexicon().search_words(
+            query=query,
+            mode=mode,
+            limit=limit,
+            offset=offset,
+            version=version,
+        )
     except FileNotFoundError:
         return _make_response(False, error="db_not_found")
     except ValueError as exc:
@@ -111,19 +124,39 @@ def search_words(
 
 
 @mcp.tool()
-def get_random_words(count: int | None = 5) -> dict[str, Any]:
+def get_random_words(count: int | None = 5, version: str | None = None) -> dict[str, Any]:
     """
     Get a random set of words from the syllabus, useful for quizzes or daily learning.
 
     Args:
         count: Number of words to retrieve (default 5, max 50).
+        version: Optional vocabulary version such as "2027" or "27考研".
     """
     rate_error = _rate_limiter.check()
     if rate_error:
         return _make_response(False, error=rate_error)
 
     try:
-        data = _lexicon().get_random_words(count=count)
+        data = _lexicon().get_random_words(count=count, version=version)
+    except FileNotFoundError:
+        return _make_response(False, error="db_not_found")
+    except ValueError as exc:
+        return _make_response(False, error=str(exc))
+    except sqlite3.Error:
+        return _make_response(False, error="db_error")
+
+    return _make_response(True, data=data)
+
+
+@mcp.tool()
+def list_versions() -> dict[str, Any]:
+    """List available vocabulary versions in the local database."""
+    rate_error = _rate_limiter.check()
+    if rate_error:
+        return _make_response(False, error=rate_error)
+
+    try:
+        data = _lexicon().list_versions()
     except FileNotFoundError:
         return _make_response(False, error="db_not_found")
     except ValueError as exc:
@@ -141,6 +174,9 @@ def stats_summary() -> str:
     except FileNotFoundError:
         payload = _make_response(False, error="db_not_found")
         return json.dumps(payload, ensure_ascii=False)
+    except ValueError as exc:
+        payload = _make_response(False, error=str(exc))
+        return json.dumps(payload, ensure_ascii=False)
     except sqlite3.Error:
         payload = _make_response(False, error="db_error")
         return json.dumps(payload, ensure_ascii=False)
@@ -155,11 +191,14 @@ def stats_schema() -> str:
     except FileNotFoundError:
         payload = _make_response(False, error="db_not_found")
         return json.dumps(payload, ensure_ascii=False)
+    except ValueError as exc:
+        payload = _make_response(False, error=str(exc))
+        return json.dumps(payload, ensure_ascii=False)
     except sqlite3.Error:
         payload = _make_response(False, error="db_error")
         return json.dumps(payload, ensure_ascii=False)
 
-    return json.dumps(_make_response(True, data={"columns": schema}), ensure_ascii=False)
+    return json.dumps(_make_response(True, data=schema), ensure_ascii=False)
 
 
 @mcp.prompt("neep_quiz")

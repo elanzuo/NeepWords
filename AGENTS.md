@@ -16,7 +16,7 @@
 - PDF -> image rendering -> crop/split -> OCR -> normalize/expand -> spellcheck -> output.
 - Spellcheck: Cocoa `NSSpellChecker` by default. Failures go to `output/rejected_words.csv` unless configured to write into DB.
 - Outputs:
-  - SQLite: `output/words.sqlite3` table `words` (`word/norm/source/ipa/frequency/created_at/updated_at`).
+  - SQLite: `output/words.sqlite3` table `words` (`word/source/added_at`), where `word` is stored in canonical lowercase form and is unique.
   - CSV (optional): `output/rejected_words.csv` columns `word/reason/source/page/column/line`.
   - CSV exports: `output/YYYY-MM-DD.csv` via `export-csv`.
 
@@ -38,8 +38,7 @@
 - Name tests as `test_<module>_<behavior>.py` and keep OCR-dependent tests minimal or use fixtures.
 
 ## Commit & Pull Request Guidelines
-- This repository has no commits yet, so there is no established commit message convention.
-- Suggested format: `type: short summary` (e.g., `feat: add OCR column splitting`).
+- Suggested commit format: `type: short summary` (e.g., `feat: add OCR column splitting`).
 - PRs should include: a brief summary, any CLI changes, and example inputs/outputs when OCR logic changes.
 
 ## OCR-Specific Notes

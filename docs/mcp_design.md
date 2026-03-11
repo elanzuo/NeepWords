@@ -11,7 +11,7 @@
 
 - **语言**: Python (>= 3.13)
 - **依赖库**: `mcp` (官方 Python SDK)
-- **数据源**: `resources/data/words.sqlite3` (SQLite 数据库，可配置路径)
+- **数据源**: `resources/data/words.sqlite3` (SQLite 数据库，可配置路径，支持单库多版本)
 - **通信协议**: Stdio (标准输入输出)，适用于本地运行
 - **代码位置**: `src/neep_mcp/` (作为独立模块或子包)
 - **读写边界**: **只读访问**（不对数据库进行更新/删除）
@@ -26,6 +26,7 @@
 * **参数**:
   * `words` (string[], required): 需要查询的单词列表。
   * `match` (string, optional): `word` | `auto`，默认 `auto`。
+  * `version` (string, optional): 指定版本，如 `2027`、`27考研`。
 * **返回**: 逐词结果列表（每项包含 `word`、`found`、以及元数据或错误码）。
 * **场景**: 用户问“这些词 ['ambiguous', 'derive', 'inevitable'] 在考研大纲里吗？它们来自哪里？”
 
@@ -36,6 +37,7 @@
   * `mode` (string, optional): `prefix` | `suffix` | `contains` | `fuzzy` | `wildcard`，默认 `contains`。
   * `limit` (integer, optional): 返回结果数量限制，默认 10，最大 200。
   * `offset` (integer, optional): 默认 0。
+  * `version` (string, optional): 指定版本，如 `2027`、`27考研`。
 * **返回**: 匹配的单词列表（每项仅包含 `word` 字段）。
 * **场景**: 用户问“考研大纲里有哪些以 'trans' 开头的单词？”
 * **模式区别**:
@@ -50,14 +52,20 @@
 * **描述**: 随机获取考研单词。可用于生成测验或每日单词。
 * **参数**:
   * `count` (integer, optional): 数量，默认 5，最大 50。
+  * `version` (string, optional): 指定版本，如 `2027`、`27考研`。
 * **返回**: 单词列表。
 * **场景**: 用户说“考我 5 个考研高频词。”
+
+#### D. `list_versions`
+* **描述**: 列出数据库中已有的词表版本及词数。
+* **参数**: 无。
+* **返回**: `versions[]`，包含 `version`、`label`、`word_count`、`is_default` 等字段。
 
 ### 3.2 Resources (资源)
 资源允许 AI 读取静态数据上下文。虽然主要通过 Tool 查询，但暴露部分统计信息很有用。
 
-* `neep://stats/summary`: 返回数据库的统计信息（总词汇量、最近入库时间、如存在则返回 rejected 相关统计）。
-* `neep://stats/schema`: 返回 `words` 表字段与说明（便于 AI 理解数据含义）。
+* `neep://stats/summary`: 返回数据库统计信息（总词汇量、最近入库时间、版本列表）。
+* `neep://stats/schema`: 返回 `vocab_versions` 与 `words` 表字段说明。
 
 ### 3.3 Prompts (提示词)
 预设的 Prompt 模板，帮助用户快速启动特定任务。
@@ -67,11 +75,18 @@
 * **逻辑**: 调用 `get_random_words` 获取单词，然后要求 AI 生成填空题或同义词辨析。
 
 ## 4. 数据库交互 (Schema 参考)
-基于 `words` 表结构：
+基于两张表：
 
-- `word`: 单词拼写
-- `source`: 来源页面/文件
-- `added_at`: 收录时间
+- `vocab_versions`: 版本元数据（`version_key`、`label`、`is_default`）
+- `words`: 词条数据（`version_id`、`word`、`source`、`added_at`）
+
+版本解析优先级：
+
+1. MCP tool 显式 `version`
+2. 环境变量 `NEEP_WORDS_VERSION`
+3. `neep.toml` 的 `[words].default_version`
+4. 数据库默认版本
+5. 数据库唯一版本
 
 ## 5. 安全与准确性约束
 

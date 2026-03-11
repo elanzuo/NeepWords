@@ -15,14 +15,20 @@ SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from neep_mcp.lexicon import WordsLexicon, resolve_db_path  # noqa: E402
+from neep_mcp.lexicon import build_lexicon, resolve_db_path  # noqa: E402
+from word_extractor.storage import detect_schema_mode, list_versions, set_default_version  # noqa: E402
 
 
 def _add_shared_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--db-path",
         default=None,
-        help="Path to words.sqlite3 (default: resources/data/words.sqlite3 or NEEP_WORDS_DB_PATH).",
+        help="Path to words.sqlite3 (default: config/env/default repository path).",
+    )
+    parser.add_argument(
+        "--version",
+        default=None,
+        help="Optional vocabulary version such as 2027 or 27考研.",
     )
     parser.add_argument(
         "--json",
@@ -63,6 +69,41 @@ def _build_parser() -> argparse.ArgumentParser:
     random.add_argument("--count", type=int, default=5, help="Number of words to return.")
     _add_shared_args(random)
 
+    list_versions_parser = subparsers.add_parser(
+        "list-versions",
+        help="List available vocabulary versions in the lexicon.",
+    )
+    list_versions_parser.add_argument(
+        "--db-path",
+        default=None,
+        help="Path to words.sqlite3 (default: config/env/default repository path).",
+    )
+    list_versions_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print JSON output. This is the recommended mode for agent use.",
+    )
+
+    set_default = subparsers.add_parser(
+        "set-default-version",
+        help="Set the database default vocabulary version.",
+    )
+    set_default.add_argument(
+        "--db-path",
+        default=None,
+        help="Path to words.sqlite3 (default: config/env/default repository path).",
+    )
+    set_default.add_argument(
+        "--version",
+        required=True,
+        help="Vocabulary version such as 2027 or 27考研.",
+    )
+    set_default.add_argument(
+        "--json",
+        action="store_true",
+        help="Print JSON output. This is the recommended mode for agent use.",
+    )
+
     return parser
 
 
@@ -79,6 +120,8 @@ def _format_lookup(results: list[dict[str, Any]], warnings: list[str]) -> str:
             f"{row['input']}: found",
             f"word={row['word']}",
         ]
+        if row.get("version"):
+            parts.append(f"version={row['version']}")
         if row.get("source"):
             parts.append(f"source={row['source']}")
         if row.get("added_at"):
@@ -91,18 +134,24 @@ def _format_search(data: dict[str, Any], warnings: list[str]) -> str:
     lines: list[str] = []
     if warnings:
         lines.append(f"warnings: {', '.join(warnings)}")
-    lines.append(
-        f"query={data['query']} mode={data['mode']} limit={data['limit']} offset={data['offset']}"
-    )
+    header = f"query={data['query']} mode={data['mode']} limit={data['limit']} offset={data['offset']}"
+    if data.get("version"):
+        header += f" version={data['version']}"
+    lines.append(header)
     for row in data["results"]:
         lines.append(row["word"])
     return "\n".join(lines)
 
 
 def _format_random(data: dict[str, Any]) -> str:
-    lines = [f"count={data['count']}"]
+    header = f"count={data['count']}"
+    if data.get("version"):
+        header += f" version={data['version']}"
+    lines = [header]
     for row in data["results"]:
         parts = [row["word"]]
+        if row.get("version"):
+            parts.append(f"version={row['version']}")
         if row.get("source"):
             parts.append(f"source={row['source']}")
         if row.get("added_at"):
@@ -115,14 +164,62 @@ def _print_json(response: dict[str, Any]) -> None:
     print(json.dumps(response, ensure_ascii=False, indent=2))
 
 
+def _format_versions(data: dict[str, Any]) -> str:
+    if data["schema_mode"] == "legacy":
+        return f"schema=legacy total_words={data['total_words']}"
+
+    lines: list[str] = []
+    for row in data["versions"]:
+        line = f"{row['version']}: words={row['word_count']}"
+        if row.get("label"):
+            line += f" label={row['label']}"
+        if row.get("is_default"):
+            line += " *"
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def main() -> int:
     args = _build_parser().parse_args()
-    db_path = Path(args.db_path) if args.db_path else resolve_db_path()
-    lexicon = WordsLexicon(db_path)
+    db_path = resolve_db_path(args.db_path, start=Path.cwd())
+    lexicon = build_lexicon(db_path, start=Path.cwd())
 
     try:
+        if args.command == "list-versions":
+            with sqlite3.connect(db_path) as conn:
+                schema_mode = detect_schema_mode(conn)
+                if schema_mode == "missing":
+                    raise ValueError("words_table_not_found")
+                if schema_mode == "legacy":
+                    total = conn.execute("SELECT COUNT(*) AS count FROM words").fetchone()
+                    data = {
+                        "schema_mode": "legacy",
+                        "versions": [],
+                        "total_words": total[0] if total is not None else 0,
+                    }
+                elif schema_mode == "versioned":
+                    data = {"schema_mode": "versioned", "versions": list_versions(conn)}
+                else:
+                    raise ValueError("unsupported_schema")
+            response = {"ok": True, "data": data, "warnings": []}
+            if args.json:
+                _print_json(response)
+            else:
+                print(_format_versions(data))
+            return 0
+
+        if args.command == "set-default-version":
+            with sqlite3.connect(db_path) as conn:
+                data = set_default_version(conn, args.version)
+            response = {"ok": True, "data": data, "warnings": []}
+            if args.json:
+                _print_json(response)
+            else:
+                print(f"default_version={data['version']}")
+            return 0
+
         if args.command == "lookup":
-            data, warnings = lexicon.lookup_words(args.words, match=args.match)
+            data, warnings = lexicon.lookup_words(args.words, match=args.match, version=args.version)
             response = {"ok": True, "data": data, "warnings": warnings}
             if args.json:
                 _print_json(response)
@@ -136,6 +233,7 @@ def main() -> int:
                 mode=args.mode,
                 limit=args.limit,
                 offset=args.offset,
+                version=args.version,
             )
             response = {"ok": True, "data": data, "warnings": warnings}
             if args.json:
@@ -144,7 +242,7 @@ def main() -> int:
                 print(_format_search(data, warnings))
             return 0
 
-        data = lexicon.get_random_words(count=args.count)
+        data = lexicon.get_random_words(count=args.count, version=args.version)
         response = {"ok": True, "data": data, "warnings": []}
         if args.json:
             _print_json(response)

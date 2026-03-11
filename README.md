@@ -115,7 +115,7 @@ uv run word_extractor export-csv --csv-path output/2026-01-26-source.csv --colum
 3. 对双栏页面进行左右分栏，逐栏调用 OCR（ocrmac / Apple Vision）。
 4. OCR 文本清洗与规范化，词形扩展（例如大小写/标点处理等）。
 5. Cocoa 拼写检查：通过的词进入数据库；未通过的词写入 `rejected_words.csv` 或按配置写入数据库。
-6. 写入 `words.sqlite3`，按 `norm` 去重并累计 `frequency`。
+6. 写入 `words.sqlite3`，按规范化后的 `word` 唯一入库，并记录 `added_at`。
 
 ## MCP Server
 
@@ -125,14 +125,14 @@ uv run word_extractor export-csv --csv-path output/2026-01-26-source.csv --colum
 
 ### Tools
 
-- `lookup_words`：批量精确查询，支持 `match=word|norm|auto`。
+- `lookup_words`：批量精确查询，支持 `match=word|auto`。
 - `search_words`：模糊搜索（默认 `mode=contains`），结果仅返回 `word`。支持 `prefix` / `suffix` / `contains` / `fuzzy` / `wildcard`。
   - `prefix`：词首匹配
   - `suffix`：词尾匹配
   - `contains`：词中包含
   - `fuzzy`：字符序列匹配（按顺序出现即可）
   - `wildcard`：SQL LIKE 风格通配符（`%` 任意长度，`_` 单字符）
-- `get_random_words`：随机获取词汇，可选 `min_frequency` 过滤。
+- `get_random_words`：随机获取词汇。
 
 启动：
 
@@ -176,7 +176,7 @@ mcp 配置：
 ```bash
 uv run python skills/neep-vocab/scripts/neep_vocab.py lookup --json abandon derive inevitable
 uv run python skills/neep-vocab/scripts/neep_vocab.py search --json --mode prefix trans
-uv run python skills/neep-vocab/scripts/neep_vocab.py random --json --count 5 --min-frequency 2
+uv run python skills/neep-vocab/scripts/neep_vocab.py random --json --count 5
 ```
 
 - skill 目录：`skills/neep-vocab/`

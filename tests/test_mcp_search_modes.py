@@ -13,6 +13,11 @@ sys.path.append(os.getcwd())
 from neep_mcp import server as mcp_server
 
 
+@pytest.fixture(autouse=True)
+def _configure_db(configured_words_db):
+    return configured_words_db
+
+
 @contextmanager
 def _rate_limiter_disabled():
     limiter = mcp_server._rate_limiter

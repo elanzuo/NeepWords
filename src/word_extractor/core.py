@@ -23,6 +23,7 @@ def extract_words(
     output_dir: Path,
     debug_dir: Path | None = None,
     *,
+    version: str | int,
     dpi: int = 300,
     crop_ratio_top: float = 0.07,
     crop_ratio_bottom: float = 0.06,
@@ -37,6 +38,7 @@ def extract_words(
     spellcheck: bool = True,
     spellcheck_rejected: str = "csv",
     spellcheck_languages: Sequence[str] | None = None,
+    legacy_version: str | int | None = None,
 ) -> dict[str, object]:
     """Run the end-to-end extraction pipeline and return stats."""
     words: list[dict[str, object]] = []
@@ -83,7 +85,10 @@ def extract_words(
     return write_outputs(
         words,
         output_dir,
+        version=version,
         spellcheck=spellcheck,
         spellcheck_rejected=spellcheck_rejected,
         spellcheck_languages=spellcheck_languages,
+        legacy_version=legacy_version,
+        source_pdf=str(pdf_path),
     )

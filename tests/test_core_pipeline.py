@@ -24,6 +24,7 @@ def test_extract_words_wires_pipeline(tmp_path, monkeypatch):
 
     def fake_write_outputs(words, output_dir, **kwargs):
         captured["words"] = words
+        captured.update(kwargs)
         return {"total_count": len(words)}
 
     monkeypatch.setattr(core, "iter_pdf_pages", fake_iter_pdf_pages)
@@ -37,6 +38,7 @@ def test_extract_words_wires_pipeline(tmp_path, monkeypatch):
         end_page=1,
         output_dir=tmp_path,
         debug_dir=tmp_path / "debug",
+        version="2027",
         crop_ratio_top=0.0,
         crop_ratio_bottom=0.0,
         split_offset=0.0,
@@ -74,3 +76,5 @@ def test_extract_words_wires_pipeline(tmp_path, monkeypatch):
             "line": 2,
         },
     ]
+    assert captured["version"] == "2027"
+    assert captured["source_pdf"] == "dummy.pdf"
