@@ -65,10 +65,6 @@ def _build_parser() -> argparse.ArgumentParser:
     search.add_argument("--offset", type=int, default=0, help="Pagination offset.")
     _add_shared_args(search)
 
-    random = subparsers.add_parser("random", help="Return random words from the lexicon.")
-    random.add_argument("--count", type=int, default=5, help="Number of words to return.")
-    _add_shared_args(random)
-
     list_versions_parser = subparsers.add_parser(
         "list-versions",
         help="List available vocabulary versions in the lexicon.",
@@ -140,23 +136,6 @@ def _format_search(data: dict[str, Any], warnings: list[str]) -> str:
     lines.append(header)
     for row in data["results"]:
         lines.append(row["word"])
-    return "\n".join(lines)
-
-
-def _format_random(data: dict[str, Any]) -> str:
-    header = f"count={data['count']}"
-    if data.get("version"):
-        header += f" version={data['version']}"
-    lines = [header]
-    for row in data["results"]:
-        parts = [row["word"]]
-        if row.get("version"):
-            parts.append(f"version={row['version']}")
-        if row.get("source"):
-            parts.append(f"source={row['source']}")
-        if row.get("added_at"):
-            parts.append(f"added_at={row['added_at']}")
-        lines.append(" | ".join(parts))
     return "\n".join(lines)
 
 
@@ -242,13 +221,6 @@ def main() -> int:
                 print(_format_search(data, warnings))
             return 0
 
-        data = lexicon.get_random_words(count=args.count, version=args.version)
-        response = {"ok": True, "data": data, "warnings": []}
-        if args.json:
-            _print_json(response)
-        else:
-            print(_format_random(data))
-        return 0
     except FileNotFoundError:
         print(json.dumps({"ok": False, "error": "db_not_found"}), file=sys.stderr)
         return 2

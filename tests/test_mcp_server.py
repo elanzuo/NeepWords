@@ -45,7 +45,6 @@ async def test_mcp_server_tools(configured_words_db):
 
             assert "lookup_words" in tool_names
             assert "search_words" in tool_names
-            assert "get_random_words" in tool_names
             assert "list_versions" in tool_names
 
             # 验证 Docstring 是否被正确解析为 description
@@ -95,16 +94,3 @@ async def test_mcp_server_tools(configured_words_db):
             assert versions_resp["ok"] is True
             assert versions_resp["data"]["schema_mode"] == "versioned"
             assert [row["version"] for row in versions_resp["data"]["versions"]] == ["2026", "2027"]
-
-            # --- Test 3: Call get_random_words ---
-            # Wait for rate limiter (default 0.5s)
-            await asyncio.sleep(0.6)
-
-            random_result = await session.call_tool(
-                "get_random_words", arguments={"count": 3, "version": "2027"}
-            )
-            random_resp = json.loads(_content_text(random_result.content[0]))
-            assert random_resp["ok"] is True
-            assert random_resp["data"]["version"] == "2027"
-            assert len(random_resp["data"]["results"]) == 3
-            assert all(item["version"] == "2027" for item in random_resp["data"]["results"])

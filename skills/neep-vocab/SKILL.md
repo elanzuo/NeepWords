@@ -1,6 +1,6 @@
 ---
 name: neep-vocab
-description: Query the local NEEP postgraduate exam vocabulary SQLite lexicon for this repository without using MCP. Use when the user asks whether one or more English words are 考研词汇, wants direct lookup/search/random sampling from the stored word list, or needs local evidence such as source or timestamps from the SQLite database.
+description: Query the local NEEP postgraduate exam vocabulary SQLite lexicon for this repository without using MCP. Use when the user asks whether one or more English words are 考研词汇, wants direct lookup/search from the stored word list, or needs local evidence such as source or timestamps from the SQLite database.
 ---
 
 # NEEP Vocab
@@ -12,7 +12,6 @@ Run it from the repository root:
 ```bash
 uv run python skills/neep-vocab/scripts/neep_vocab.py lookup --json abandon derive inevitable
 uv run python skills/neep-vocab/scripts/neep_vocab.py search --json --mode prefix trans
-uv run python skills/neep-vocab/scripts/neep_vocab.py random --json --count 5
 uv run python skills/neep-vocab/scripts/neep_vocab.py lookup --json --version 2027 adaptive
 uv run python skills/neep-vocab/scripts/neep_vocab.py list-versions --json
 uv run python skills/neep-vocab/scripts/neep_vocab.py set-default-version --json --version 2027
@@ -24,7 +23,6 @@ Prefer `--json` for agent use. Parse the JSON and summarize only what the comman
 
 - Use `lookup` for membership checks on one or more words.
 - Use `search` for `prefix`, `suffix`, `contains`, `fuzzy`, or `wildcard` matching.
-- Use `random` for drills, quizzes, or sample vocabulary lists.
 - Use `list-versions` to inspect which vocabulary versions exist and which one is the DB default.
 - Use `set-default-version` only when the user explicitly asks to change the default version for future unspecified queries.
 
@@ -63,14 +61,13 @@ If the user asks to change the database default, use `set-default-version` inste
 - Mention any returned `warnings` when they affect interpretation, such as input normalization.
 - Do not infer that a word is in the exam syllabus unless the local database lookup says it is.
 - For `search`, state the mode and list matched words tersely.
-- For `random`, present the sampled words and relevant metadata without implying ranking or completeness.
 - For `list-versions`, include which version is default.
 - Treat `set-default-version` as a state-changing action and mention that it changes future queries that omit `--version`.
 
 ## Input handling
 
 - `lookup` supports `--match auto|word`. Use `auto` unless the user explicitly wants strict `word` matching.
-- `lookup/search/random` all support `--version`.
+- `lookup/search` both support `--version`.
 - `list-versions` and `set-default-version` do not need `--version` for query filtering; `set-default-version --version ...` means the target default.
 - Non-wildcard input is normalized to the longest English token and lowercased before querying.
 - Wildcard search accepts letters plus `-`, `%`, and `_`.

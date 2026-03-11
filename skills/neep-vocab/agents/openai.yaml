@@ -1,4 +1,4 @@
 interface:
   display_name: "NEEP Vocab"
-  short_description: "Local NEEP word lookup, search, and random sampling"
-  default_prompt: "Use $neep-vocab to check whether words are in the local NEEP list, search the lexicon, or fetch random words for drills."
+  short_description: "Local NEEP word lookup and search"
+  default_prompt: "Use $neep-vocab to check whether words are in the local NEEP list or search the lexicon."
