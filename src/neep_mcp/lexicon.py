@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-import os
 import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
-DEFAULT_DB_PATH = Path("resources") / "data" / "words.sqlite3"
+from word_extractor.storage import ResolvedVersion, detect_schema_mode, resolve_configured_version
+from word_extractor.storage import list_versions as list_version_rows
+from word_extractor.storage import resolve_db_path as resolve_storage_db_path
+from word_extractor.storage import resolve_version as resolve_db_version
+
 MAX_WORD_LENGTH = 64
 MAX_LOOKUP = 200
 MAX_SEARCH = 200
@@ -23,6 +26,7 @@ class WordsQueryResult:
     word: str
     source: str | None
     added_at: str | None
+    version: str | None
 
 
 class WordsDatabase:
@@ -43,13 +47,8 @@ class WordsDatabase:
             return cursor.fetchall()
 
 
-def resolve_db_path() -> Path:
-    env_value = (
-        os.environ.get("NEEP_WORDS_DB_PATH")
-        or os.environ.get("NEEP_WORDS_DB")
-        or str(DEFAULT_DB_PATH)
-    )
-    return Path(env_value)
+def resolve_db_path(explicit: str | Path | None = None, *, start: Path | None = None) -> Path:
+    return resolve_storage_db_path(explicit, start=start)
 
 
 def sanitize_token(value: str) -> tuple[str | None, list[str]]:
@@ -109,21 +108,42 @@ def sanitize_wildcard(value: str) -> tuple[str | None, list[str]]:
     return cleaned, warnings
 
 
-def _row_to_result(row: sqlite3.Row) -> WordsQueryResult:
+def _row_to_result(row: sqlite3.Row, *, version: str | None) -> WordsQueryResult:
     return WordsQueryResult(
         word=row["word"],
         source=row["source"],
         added_at=row["added_at"],
+        version=version,
     )
 
 
 class WordsLexicon:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, configured_version: str | None = None) -> None:
         self._db = WordsDatabase(path)
         self.path = path
+        self.configured_version = configured_version
+
+    def _resolve_version(self, conn: sqlite3.Connection, *, version: str | None) -> ResolvedVersion | None:
+        schema_mode = detect_schema_mode(conn)
+        if schema_mode == "legacy":
+            if version is not None or self.configured_version is not None:
+                raise ValueError("legacy_schema_no_versions")
+            return None
+        if schema_mode == "missing":
+            raise ValueError("words_table_not_found")
+        if schema_mode != "versioned":
+            raise ValueError("unsupported_schema")
+        return resolve_db_version(
+            conn,
+            requested_version=version,
+            configured_version=self.configured_version,
+        )
 
     def lookup_words(
-        self, words: Iterable[str], match: str | None = "auto"
+        self,
+        words: Iterable[str],
+        match: str | None = "auto",
+        version: str | None = None,
     ) -> tuple[dict[str, Any], list[str]]:
         if words is None:
             raise ValueError("missing_words")
@@ -142,6 +162,7 @@ class WordsLexicon:
         warnings: list[str] = []
 
         with self._db.connect() as conn:
+            resolved_version = self._resolve_version(conn, version=version)
             for item in items:
                 original = str(item)
                 cleaned, clean_warnings = sanitize_token(original)
@@ -150,28 +171,54 @@ class WordsLexicon:
                     results.append({"input": original, "found": False, "error": "invalid_input"})
                     continue
 
-                row = conn.execute("SELECT * FROM words WHERE word = ?", (cleaned,)).fetchone()
+                if resolved_version is None:
+                    row = conn.execute("SELECT * FROM words WHERE word = ?", (cleaned,)).fetchone()
+                else:
+                    row = conn.execute(
+                        """
+                        SELECT w.word, w.source, w.added_at
+                        FROM words AS w
+                        WHERE w.version_id = ? AND w.word = ?
+                        """,
+                        (resolved_version.id, cleaned),
+                    ).fetchone()
 
                 if row is None:
-                    results.append({"input": original, "query": cleaned, "found": False})
+                    result: dict[str, Any] = {"input": original, "query": cleaned, "found": False}
+                    if resolved_version is not None:
+                        result["version"] = resolved_version.version_key
+                    results.append(result)
                     continue
 
-                payload = _row_to_result(row)
-                results.append(
-                    {
-                        "input": original,
-                        "query": cleaned,
-                        "found": True,
-                        "word": payload.word,
-                        "source": payload.source,
-                        "added_at": payload.added_at,
-                    }
+                payload = _row_to_result(
+                    row,
+                    version=resolved_version.version_key if resolved_version is not None else None,
                 )
+                result = {
+                    "input": original,
+                    "query": cleaned,
+                    "found": True,
+                    "word": payload.word,
+                    "source": payload.source,
+                    "added_at": payload.added_at,
+                }
+                if payload.version is not None:
+                    result["version"] = payload.version
+                results.append(result)
 
-        return {"results": results}, warnings
+        payload: dict[str, Any] = {"results": results}
+        if resolved_version is not None:
+            payload["version"] = resolved_version.version_key
+            payload["version_source"] = resolved_version.source
+        return payload, warnings
 
     def search_words(
-        self, query: str, mode: str | None = "contains", limit: int | None = 10, offset: int | None = 0
+        self,
+        query: str,
+        mode: str | None = "contains",
+        limit: int | None = 10,
+        offset: int | None = 0,
+        version: str | None = None,
     ) -> tuple[dict[str, Any], list[str]]:
         if query is None:
             raise ValueError("missing_query")
@@ -211,21 +258,43 @@ class WordsLexicon:
         else:
             pattern = "%" + "%".join(cleaned) + "%"
 
-        rows = self._db.fetch_all(
-            "SELECT * FROM words WHERE word LIKE ? ORDER BY word LIMIT ? OFFSET ?",
-            (pattern, limit_value, offset_value),
-        )
+        with self._db.connect() as conn:
+            resolved_version = self._resolve_version(conn, version=version)
+            if resolved_version is None:
+                rows = conn.execute(
+                    "SELECT word FROM words WHERE word LIKE ? ORDER BY word LIMIT ? OFFSET ?",
+                    (pattern, limit_value, offset_value),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT w.word
+                    FROM words AS w
+                    WHERE w.version_id = ? AND w.word LIKE ?
+                    ORDER BY w.word
+                    LIMIT ? OFFSET ?
+                    """,
+                    (resolved_version.id, pattern, limit_value, offset_value),
+                ).fetchall()
 
         results = [{"word": row["word"]} for row in rows]
-        return {
+        payload: dict[str, Any] = {
             "query": cleaned,
             "mode": mode_value,
             "limit": limit_value,
             "offset": offset_value,
             "results": results,
-        }, warnings
+        }
+        if resolved_version is not None:
+            payload["version"] = resolved_version.version_key
+            payload["version_source"] = resolved_version.source
+        return payload, warnings
 
-    def get_random_words(self, count: int | None = 5) -> dict[str, Any]:
+    def get_random_words(
+        self,
+        count: int | None = 5,
+        version: str | None = None,
+    ) -> dict[str, Any]:
         try:
             count_value = int(count or 5)
         except (TypeError, ValueError) as exc:
@@ -233,55 +302,131 @@ class WordsLexicon:
 
         count_value = max(1, min(count_value, MAX_RANDOM))
 
-        sql = "SELECT * FROM words"
-        params: list[Any] = []
-        sql += " ORDER BY RANDOM() LIMIT ?"
-        params.append(count_value)
+        with self._db.connect() as conn:
+            resolved_version = self._resolve_version(conn, version=version)
+            if resolved_version is None:
+                rows = conn.execute(
+                    "SELECT word, source, added_at FROM words ORDER BY RANDOM() LIMIT ?",
+                    (count_value,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT word, source, added_at
+                    FROM words
+                    WHERE version_id = ?
+                    ORDER BY RANDOM()
+                    LIMIT ?
+                    """,
+                    (resolved_version.id, count_value),
+                ).fetchall()
 
-        rows = self._db.fetch_all(sql, params)
         results = [
             {
                 "word": row["word"],
                 "source": row["source"],
                 "added_at": row["added_at"],
+                **(
+                    {"version": resolved_version.version_key}
+                    if resolved_version is not None
+                    else {}
+                ),
             }
             for row in rows
         ]
-        return {"count": count_value, "results": results}
+        payload: dict[str, Any] = {"count": count_value, "results": results}
+        if resolved_version is not None:
+            payload["version"] = resolved_version.version_key
+            payload["version_source"] = resolved_version.source
+        return payload
+
+    def list_versions(self) -> dict[str, Any]:
+        with self._db.connect() as conn:
+            schema_mode = detect_schema_mode(conn)
+            if schema_mode == "missing":
+                raise ValueError("words_table_not_found")
+            if schema_mode == "legacy":
+                total = conn.execute("SELECT COUNT(*) AS count FROM words").fetchone()
+                return {
+                    "schema_mode": "legacy",
+                    "versions": [],
+                    "total_words": total["count"] if total else 0,
+                }
+            if schema_mode != "versioned":
+                raise ValueError("unsupported_schema")
+            versions = list_version_rows(conn)
+            return {"schema_mode": "versioned", "versions": versions}
 
     def stats_summary(self) -> dict[str, Any]:
         with self._db.connect() as conn:
+            schema_mode = detect_schema_mode(conn)
+            if schema_mode == "missing":
+                raise ValueError("words_table_not_found")
+            if schema_mode == "legacy":
+                total = conn.execute("SELECT COUNT(*) AS count FROM words").fetchone()
+                last_added = conn.execute("SELECT MAX(added_at) AS added_at FROM words").fetchone()
+                return {
+                    "schema_mode": "legacy",
+                    "total_words": total["count"] if total else 0,
+                    "last_added": last_added["added_at"] if last_added else None,
+                }
+            if schema_mode != "versioned":
+                raise ValueError("unsupported_schema")
+
             total = conn.execute("SELECT COUNT(*) AS count FROM words").fetchone()
             last_added = conn.execute("SELECT MAX(added_at) AS added_at FROM words").fetchone()
-
-        stats = {
+            versions = list_version_rows(conn)
+        return {
+            "schema_mode": "versioned",
             "total_words": total["count"] if total else 0,
             "last_added": last_added["added_at"] if last_added else None,
+            "versions": versions,
         }
 
-        rejected_csv = self.path.with_name("rejected_words.csv")
-        if rejected_csv.exists():
-            stats["rejected_csv"] = str(rejected_csv)
-            try:
-                with rejected_csv.open("r", encoding="utf-8") as handle:
-                    rejected_count = sum(1 for _ in handle) - 1
-                stats["rejected_count"] = max(0, rejected_count)
-            except OSError:
-                stats["rejected_count"] = None
-
-        return stats
-
-    def schema(self) -> list[dict[str, Any]]:
+    def schema(self) -> dict[str, Any]:
         with self._db.connect() as conn:
-            rows = conn.execute("PRAGMA table_info(words)").fetchall()
+            schema_mode = detect_schema_mode(conn)
+            if schema_mode == "missing":
+                raise ValueError("words_table_not_found")
+            if schema_mode == "legacy":
+                return {
+                    "schema_mode": "legacy",
+                    "tables": {
+                        "words": [
+                            {
+                                "name": row["name"],
+                                "type": row["type"],
+                                "notnull": row["notnull"],
+                                "default": row["dflt_value"],
+                                "pk": row["pk"],
+                            }
+                            for row in conn.execute("PRAGMA table_info(words)").fetchall()
+                        ]
+                    },
+                }
+            if schema_mode != "versioned":
+                raise ValueError("unsupported_schema")
 
-        return [
-            {
-                "name": row["name"],
-                "type": row["type"],
-                "notnull": row["notnull"],
-                "default": row["dflt_value"],
-                "pk": row["pk"],
-            }
-            for row in rows
-        ]
+            tables: dict[str, list[dict[str, Any]]] = {}
+            for table_name in ("vocab_versions", "words"):
+                tables[table_name] = [
+                    {
+                        "name": row["name"],
+                        "type": row["type"],
+                        "notnull": row["notnull"],
+                        "default": row["dflt_value"],
+                        "pk": row["pk"],
+                    }
+                    for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+                ]
+        return {"schema_mode": "versioned", "tables": tables}
+
+
+def build_lexicon(
+    db_path: str | Path | None = None,
+    *,
+    start: Path | None = None,
+) -> WordsLexicon:
+    path = resolve_db_path(db_path, start=start)
+    configured_version, _ = resolve_configured_version(start=start)
+    return WordsLexicon(path, configured_version=configured_version)
