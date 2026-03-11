@@ -16,7 +16,6 @@ from word_extractor.storage import resolve_version as resolve_db_version
 MAX_WORD_LENGTH = 64
 MAX_LOOKUP = 200
 MAX_SEARCH = 200
-MAX_RANDOM = 50
 
 _WORD_RE = re.compile(r"[A-Za-z-]+")
 
@@ -289,56 +288,6 @@ class WordsLexicon:
             payload["version"] = resolved_version.version_key
             payload["version_source"] = resolved_version.source
         return payload, warnings
-
-    def get_random_words(
-        self,
-        count: int | None = 5,
-        version: str | None = None,
-    ) -> dict[str, Any]:
-        try:
-            count_value = int(count or 5)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("invalid_count") from exc
-
-        count_value = max(1, min(count_value, MAX_RANDOM))
-
-        with self._db.connect() as conn:
-            resolved_version = self._resolve_version(conn, version=version)
-            if resolved_version is None:
-                rows = conn.execute(
-                    "SELECT word, source, added_at FROM words ORDER BY RANDOM() LIMIT ?",
-                    (count_value,),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    """
-                    SELECT word, source, added_at
-                    FROM words
-                    WHERE version_id = ?
-                    ORDER BY RANDOM()
-                    LIMIT ?
-                    """,
-                    (resolved_version.id, count_value),
-                ).fetchall()
-
-        results = [
-            {
-                "word": row["word"],
-                "source": row["source"],
-                "added_at": row["added_at"],
-                **(
-                    {"version": resolved_version.version_key}
-                    if resolved_version is not None
-                    else {}
-                ),
-            }
-            for row in rows
-        ]
-        payload: dict[str, Any] = {"count": count_value, "results": results}
-        if resolved_version is not None:
-            payload["version"] = resolved_version.version_key
-            payload["version_source"] = resolved_version.source
-        return payload
 
     def list_versions(self) -> dict[str, Any]:
         with self._db.connect() as conn:

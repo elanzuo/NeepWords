@@ -119,34 +119,6 @@ def test_skill_search_script_json_output(sample_words_db: Path):
     assert response["data"]["results"] == [{"word": "formation"}]
 
 
-def test_skill_random_script_json_output(sample_words_db: Path):
-    env = {**os.environ, "NEEP_WORDS_DB_PATH": str(sample_words_db)}
-    result = subprocess.run(
-        [
-            sys.executable,
-            "skills/neep-vocab/scripts/neep_vocab.py",
-            "random",
-            "--json",
-            "--count",
-            "3",
-            "--version",
-            "2027",
-        ],
-        cwd=Path.cwd(),
-        env=env,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-
-    response = json.loads(result.stdout)
-    assert response["ok"] is True
-    assert response["data"]["count"] == 3
-    assert response["data"]["version"] == "2027"
-    assert len(response["data"]["results"]) == 3
-    assert all(row["version"] == "2027" for row in response["data"]["results"])
-
-
 def test_skill_list_versions_script_json_output(sample_words_db: Path):
     env = {**os.environ, "NEEP_WORDS_DB_PATH": str(sample_words_db)}
     result = subprocess.run(

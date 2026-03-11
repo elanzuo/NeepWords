@@ -124,31 +124,6 @@ def search_words(
 
 
 @mcp.tool()
-def get_random_words(count: int | None = 5, version: str | None = None) -> dict[str, Any]:
-    """
-    Get a random set of words from the syllabus, useful for quizzes or daily learning.
-
-    Args:
-        count: Number of words to retrieve (default 5, max 50).
-        version: Optional vocabulary version such as "2027" or "27考研".
-    """
-    rate_error = _rate_limiter.check()
-    if rate_error:
-        return _make_response(False, error=rate_error)
-
-    try:
-        data = _lexicon().get_random_words(count=count, version=version)
-    except FileNotFoundError:
-        return _make_response(False, error="db_not_found")
-    except ValueError as exc:
-        return _make_response(False, error=str(exc))
-    except sqlite3.Error:
-        return _make_response(False, error="db_error")
-
-    return _make_response(True, data=data)
-
-
-@mcp.tool()
 def list_versions() -> dict[str, Any]:
     """List available vocabulary versions in the local database."""
     rate_error = _rate_limiter.check()
@@ -199,16 +174,6 @@ def stats_schema() -> str:
         return json.dumps(payload, ensure_ascii=False)
 
     return json.dumps(_make_response(True, data=schema), ensure_ascii=False)
-
-
-@mcp.prompt("neep_quiz")
-def neep_quiz(count: int = 5) -> str:
-    return (
-        "You are preparing a vocabulary quiz based on the WordExtractor database. "
-        "Call the get_random_words tool with the requested count, then create a short quiz "
-        "(fill-in-the-blank or synonym choice). Provide the answer key after the questions. "
-        f"Requested count: {count}."
-    )
 
 
 if __name__ == "__main__":
