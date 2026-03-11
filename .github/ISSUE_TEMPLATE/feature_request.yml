@@ -1,0 +1,69 @@
+name: Feature Request
+description: Suggest an improvement to NeepWords.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Suggest changes that fit the project's core scope:
+
+        - verifiable vocabulary lookup
+        - feature-based vocabulary search
+        - OCR extraction into a local SQLite lexicon
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem or workflow gap does this solve?
+      placeholder: I want to ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: What change do you want?
+      placeholder: Add a command / search mode / MCP field / export behavior ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What alternatives did you consider?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - CLI
+        - MCP server
+        - SQLite / storage
+        - OCR pipeline
+        - Search / lookup
+        - Packaging / install
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Example Usage
+      description: If relevant, show the desired command, API call, or user-facing output.
+      render: text
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope Check
+      options:
+        - label: This request is primarily about NeepWords' core use case, not a generic dictionary or language-learning platform.
+          required: true
