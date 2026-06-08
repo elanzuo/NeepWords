@@ -55,10 +55,12 @@ body:
       description: Which part of the project is affected?
       options:
         - CLI
-        - MCP server
+        - Skill: kaoyan-vocab-lookup
+        - Skill: kaoyan-vocab-sheet
         - SQLite / storage
         - OCR pipeline
         - Search / lookup
+        - PDF review sheet output
         - Packaging / install
         - Documentation
         - Other

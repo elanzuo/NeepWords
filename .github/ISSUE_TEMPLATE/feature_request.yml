@@ -11,6 +11,7 @@ body:
 
         - verifiable vocabulary lookup
         - feature-based vocabulary search
+        - printable vocabulary review sheets
         - OCR extraction into a local SQLite lexicon
 
   - type: textarea
@@ -27,7 +28,7 @@ body:
     attributes:
       label: Proposed Solution
       description: What change do you want?
-      placeholder: Add a command / search mode / MCP field / export behavior ...
+      placeholder: Add a command / search mode / sheet layout / export behavior ...
     validations:
       required: true
 
@@ -43,10 +44,12 @@ body:
       label: Area
       options:
         - CLI
-        - MCP server
+        - Skill: kaoyan-vocab-lookup
+        - Skill: kaoyan-vocab-sheet
         - SQLite / storage
         - OCR pipeline
         - Search / lookup
+        - PDF review sheet output
         - Packaging / install
         - Documentation
         - Other

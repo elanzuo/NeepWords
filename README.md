@@ -1,213 +1,190 @@
 # NeepWords
 
-NeepWords 是一个面向考研英语词表场景的本地工具集，用来解决两个实际问题：
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.13%2B-blue" alt="Python Version">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
+  <img src="https://img.shields.io/badge/package%20manager-uv-purple" alt="Package Manager">
+  <img src="https://img.shields.io/badge/skills-cross--platform-lightgrey" alt="Skills Platform">
+  <img src="https://img.shields.io/badge/OCR-macOS%20only-lightgrey" alt="OCR Platform">
+</p>
 
-- AI 助手无法可靠判断某个单词是否属于考研大纲词汇。
-- 用户很难快速查找“符合某个特征”的考研单词，例如前缀、后缀、包含、模糊匹配或通配符匹配。
+NeepWords 是一个面向考研英语词表场景的本地工具集，主要解决两件事：
+1. **本地词表能力 (Skills)**：让 AI 或用户能够基于本地 SQLite 词库进行单词的检索、大纲归属判断，或将单词快速导出为方便打印与背诵的 A4 PDF / Excel 词汇表。
+2. **OCR 提取与维护 (CLI)**：提供针对扫描版《考试大纲》的 OCR 双栏自动分割提取工作流，支持人工补录、CSV 灵活导出与 SQLite 词库的多版本管理。
 
-项目提供三类能力：
+---
 
-- OCR 提取：从扫描版《考试大纲》PDF 中抽取词汇，写入本地 SQLite。
-- 词表查询与检索：通过本地 skills，让 AI 助手基于本地词库回答“是不是考研词”，并支持前缀、后缀、包含、模糊匹配和通配符搜索。
-- 多版本管理：同一个 SQLite 可同时保存 `2026`、`2027`、`2028` 等多个考研版本。
+## 📂 项目结构
 
-项目当前主要针对 macOS Apple Silicon 优化；其中 OCR 与 Cocoa 拼写检查依赖 macOS，skills 查询能力可脱离 OCR 独立使用。
+```text
+NeepWords/
+├── docs/                 # 项目设计与参考文档 (数据库设计、拼写检查设计等)
+├── src/
+│   └── word_extractor/   # 主项目 OCR 提取与 SQLite 维护 CLI 工具
+├── skills/               # 本地开箱即用小工具集 (免安装或低依赖)
+│   ├── kaoyan-vocab-lookup/ # 单词检索与大纲判断服务 (内置 2026 示例词库)
+│   └── kaoyan-vocab-sheet/  # 单词排版生成 A4 PDF/Excel 背诵表服务
+├── tests/                # 单元测试用例
+├── pyproject.toml        # 项目依赖、开发环境及 Ruff 配置
+└── resources/            # 预留的输入资产与示例数据库存放处
+```
 
-## Quick Start
+---
 
-### 1. 只做本地查询
+## ⚡ 快速上手：开箱即用的本地 Skills
 
-默认安装即可使用仓库附带的示例库做查询演示。
+本项目内置了包含 2026 考研大纲词汇的示例数据库。运行本地 Skill **不需要** macOS 系统，只要系统安装了 Python `>=3.13` 和 [uv](https://github.com/astral-sh/uv) 即可。
 
-注意：当前仓库附带的示例库是 legacy schema，用于开箱即用查询演示，不用于展示“单库多版本”能力。多版本管理示例请使用你自己的工作库，或先迁移旧库。
+> [!TIP]
+> **没有安装 `uv`？**
+> `uv` 是一个由 Rust 编写的超快 Python 包与环境管理工具。安装非常简单：
+> - macOS/Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+> - Windows: `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"`
+
+### 1. 考研词库查询与检索 (kaoyan-vocab-lookup)
+
+用于判断单词是否在大纲词库中，支持前缀、模糊等多种检索模式。首先确保项目依赖已同步：
 
 ```bash
+# 同步项目基础依赖
 uv sync
-uv run skills/kaoyan-vocab-lookup/scripts/neep_vocab.py list-versions --json
+
+# 1. 查询某个单词 (Lookup)
 uv run skills/kaoyan-vocab-lookup/scripts/neep_vocab.py lookup --json transition
+
+# 2. 前缀检索单词 (Search)
 uv run skills/kaoyan-vocab-lookup/scripts/neep_vocab.py search --json --mode prefix trans
-```
 
-你会看到类似结果：
-
-- `list-versions --json`：返回 `schema_mode: legacy` 和示例库词数
-- `lookup transition`：返回 `found: true`
-- `search --mode prefix trans`：返回 `transaction`、`transcend`、`transfer`、`transform` 等前缀匹配结果
-
-### 2. 在 macOS 上启用 OCR 提取
-
-OCR 与系统拼写检查依赖 macOS 原生能力，请安装可选 extra：
-
-```bash
-uv sync --extra macos
-uv run neepwords --pdf /path/to/outline.pdf \
-  --start-page 45 \
-  --end-page 165 \
-  --version 2027 \
-  --spellcheck-language en_GB \
-  --spellcheck-language en \
-  --split-offset -0.1
-```
-
-## 平台支持
-
-| 能力 | macOS | Linux / Windows |
-| --- | --- | --- |
-| SQLite 查询 | Supported | Supported |
-| 示例库演示 | Supported | Supported |
-| PDF OCR 提取 | Supported | Not supported |
-| Cocoa 拼写检查 | Supported | Not supported |
-
-## 数据与版权边界
-
-- 本仓库默认不附带原始《考试大纲》PDF。你需要自行准备合法取得的 PDF 文件。
-- 如果你将自己的提取结果、截图或数据库再次公开，请自行确认是否具备再分发权利。
-- `resources/examples/words.sqlite3` 仅用于开箱即用查询演示，不承诺是完整、官方或可商用再分发的考研词表发布物。
-- NeepWords 的“是否为考研词汇”判断标准，是本地数据库当前版本中是否存在该词；它不是对考试政策或官方定义的替代解释。
-
-## 安装与依赖
-
-- Python: `>= 3.13`
-- Package manager: `uv`
-- 默认安装：包含 SQLite、CLI、示例查询所需依赖
-- `macos` extra：额外安装 `ocrmac` 与 `pyobjc-framework-cocoa`，用于 OCR 提取与 Cocoa 拼写检查
-
-## 提取词汇 CLI
-
-<img src="resources/img/ocr.png" alt="OCR 示例截图" width="768">
-
-### 提取词汇（主命令）
-
-```bash
-uv run neepwords --pdf /path/to/outline.pdf \
-  --start-page 45 \
-  --end-page 165 \
-  --version 2026 \
-  --spellcheck-language en_GB \
-  --spellcheck-language en \
-  --split-offset -0.1
-```
-
-说明：
-
-- `uv sync --extra macos` 会安装 OCR 与 macOS 拼写检查所需依赖
-- CLI 页码为 1-based
-- `--version` 必填，支持 `2026`、`26`、`2026考研` 这类写法
-- 提取命令默认将数据库写入 `output/words.sqlite3`
-- 为兼容旧脚本，仍保留入口别名 `word_extractor`
-
-拼写检查示例：
-
-```bash
-uv run neepwords --pdf /path/to/outline.pdf \
-  --start-page 146 \
-  --end-page 147 \
-  --version 2026 \
-  --no-spellcheck
-```
-
-调试输出：
-
-```bash
-uv run neepwords --pdf /path/to/outline.pdf \
-  --start-page 45 \
-  --end-page 45 \
-  --version 2026 \
-  --spellcheck-language en_GB \
-  --spellcheck-language en \
-  --split-offset -0.1 \
-  --debug-dir debug
-```
-
-参数：
-
-- `--pdf`：输入 PDF 路径
-- `--start-page`：起始页码，1-based
-- `--end-page`：结束页码，1-based
-- `--version`：导入目标版本，必填
-- `--legacy-version`：当目标库还是旧单版本 schema 时，声明库中旧数据所属版本
-- `--output-dir`：输出目录，默认 `output`
-- `--debug-dir`：调试输出目录
-- `--spellcheck` / `--no-spellcheck`：是否启用 Cocoa 拼写检查
-- `--spellcheck-rejected`：拼写检查失败词写到 `csv` 或 `db`
-- `--spellcheck-language`：拼写检查语言，可重复
-- `--split-offset`：双栏分割偏移
-
-数据库路径约定：
-
-- `output/words.sqlite3`：用户实际工作库，提取命令默认写入这里
-- `resources/examples/words.sqlite3`：仓库可附带的只读示例库，仅用于开箱即用查询演示
-
-### 添加词汇（add-words）
-
-用于复核 `rejected_words.csv` 后手动入库：
-
-```bash
-uv run neepwords add-words \
-  --db-path output/words.sqlite3 \
-  --version 2026 \
-  --entry "endeavour:26考研英语一考试大纲-81-L-2-endeavour" \
-  --entry "favourite:26考研英语一考试大纲-86-L-8-favourite" \
-  --entry "humourous:26考研英语一考试大纲-97-R-4-humo(u)rous" \
-  --entry "gasolene:26考研英语一考试大纲-123-L-6-petrol / gasoline / gasolene" \
-  --entry "policewoman:26考研英语一考试大纲-125-L-3-policeman / policewoman"
-```
-
-参数：
-
-- `--entry`：词条 `word[:source]`，可重复
-- `--db-path`：目标数据库路径
-- `--version`：写入目标版本，必填
-- `--legacy-version`：自动升级旧库时声明旧数据版本
-
-### 导出词表（export-csv）
-
-```bash
-uv run neepwords export-csv \
-  --db-path output/words.sqlite3 \
-  --csv-path output/2027.csv \
-  --columns version,word,source \
-  --version 2027
-```
-
-参数：
-
-- `--db-path`：导出数据库路径
-- `--csv-path`：CSV 输出路径，默认 `words/YYYY-MM-DD.csv`
-- `--columns`：导出列，默认 `word,source`
-- `--version`：按指定版本过滤导出
-
-### 原理与流程
-
-整体流程基于“渲染 -> 图像处理 -> OCR -> 规范化/扩展 -> 拼写检查 -> 入库/导出”的流水线：
-
-1. PDF 页面渲染为高分辨率图像
-2. 图像裁剪去除页眉页脚，并进行增强处理
-3. 对双栏页面进行左右分栏并逐栏 OCR
-4. OCR 文本清洗、规范化和词形扩展
-5. Cocoa 拼写检查：通过的词进入数据库；未通过的词写入 `rejected_words.csv` 或按配置写入数据库
-6. 写入 `words.sqlite3`，按 `(version_id, word)` 唯一入库，并记录 `added_at`
-
-## Agent Skill
-
-如果你在 Codex 类代理环境中使用本仓库，可以通过内置 skill 查询和管理本地词库：
-
-```bash
-uv run skills/kaoyan-vocab-lookup/scripts/neep_vocab.py lookup --json --version 2027 adaptive
-uv run skills/kaoyan-vocab-lookup/scripts/neep_vocab.py search --json --mode prefix trans
+# 3. 列出当前 SQLite 支持的所有词表版本
 uv run skills/kaoyan-vocab-lookup/scripts/neep_vocab.py list-versions --json
-uv run skills/kaoyan-vocab-lookup/scripts/neep_vocab.py set-default-version --db-path /path/to/words.sqlite3 --json --version 2027
 ```
 
-- skill 目录：`skills/kaoyan-vocab-lookup/`，同时覆盖本地查询与显式默认版本切换
-- 源码侧 CLI 仅保留提取词汇、`add-words`、`export-csv`
-- 数据库解析顺序：`--db-path` -> `NEEP_WORDS_DB_PATH` -> skill 自带 `examples/words.sqlite3`（仅读命令）
-- 版本解析顺序：`--version` -> `NEEP_WORDS_VERSION` -> 数据库默认版本 -> 唯一版本
-- 成功 JSON 统一返回：`command`、`ok`、`data`、`warnings`、`error`
-- `set-default-version` 需要显式 writable DB 路径或 `NEEP_WORDS_DB_PATH`；只有在用户明确要求修改默认版本时才应触发该命令
+若你需要修改某个可写数据库的默认词表版本，可指定数据库路径运行：
 
-## 技术栈
+```bash
+uv run skills/kaoyan-vocab-lookup/scripts/neep_vocab.py set-default-version \
+  --db-path output/words.sqlite3 \
+  --version 2027 \
+  --json
+```
 
-- PDF 渲染：pypdfium2
-- 图像处理：PIL (Pillow)
-- OCR 引擎：ocrmac (Apple Vision)
+---
+
+### 2. A4 背诵单词卡生成 (kaoyan-vocab-sheet)
+
+用于把指定的单词列表生成方便打印和背诵的 A4 规格 PDF，并可根据需要附带生成 XLSX 文件。
+
+> [!NOTE]
+> 该脚本通过 [PEP 723](https://peps.python.org/pep-0723/) 声明了外部依赖。当你使用 `uv run` 时，`uv` 会自动为您提供免配置的临时隔离运行环境，**无需手动安装任何依赖**：
+
+```bash
+# 基于指定文本中的词列表，生成 A4 排版背诵 PDF
+uv run skills/kaoyan-vocab-sheet/scripts/vocab_sheet.py skills/kaoyan-vocab-sheet/examples/words.txt
+```
+
+---
+
+## 📸 进阶：OCR 提取与 SQLite 维护
+
+本部分提供将您个人合法取得的扫描版《考试大纲》PDF 进行高保真识别并录入 SQLite 数据库的功能。
+
+### 📌 前置条件
+* **系统要求**：由于底层调用了 Apple Vision 框架，**OCR 部分目前仅支持 macOS**。
+* **依赖安装**：需要同步安装 macOS 独有的系统级及 OCR 库依赖：
+  ```bash
+  uv sync --extra macos
+  ```
+* **资源准备**：出于版权保护，本仓库**不附带**原始《考试大纲》PDF 文件，请自行准备。
+
+### ⚙️ 主提取命令
+```bash
+uv run neepwords \
+  --pdf /path/to/outline.pdf \
+  --start-page 45 \
+  --end-page 165 \
+  --version 2026 \
+  --spellcheck-language en_GB \
+  --spellcheck-language en \
+  --split-offset -0.1
+```
+
+* **参数解析**：
+  * `--pdf`: 扫描版大纲 PDF 的本地绝对路径。
+  * `--start-page` / `--end-page`: 识别的页码区间（1-based 物理页码）。
+  * `--version`: 录入词汇的版本标识（如 `2026`、`2027` 等，必填）。
+  * `--spellcheck-language`: 拼写检查的语言代码（支持设置多个，如同时支持英音与美音）。
+  * `--split-offset`: 左右分栏中线的偏移量微调百分比，避免切到文字。
+
+> [!NOTE]
+> **关于入口别名**：为了兼容旧版执行脚本，本程序同时保留了 `word_extractor` 别名入口（即 `uv run word_extractor ...`）。
+
+---
+
+### 🔄 提取工作流详解
+
+```mermaid
+graph TD
+    A[扫描版大纲 PDF] --> B[pypdfium2 高清渲染为图片]
+    B --> C[PIL 自动裁剪页眉页脚]
+    C --> D[PIL 沿中缝切分为左右双栏]
+    D --> E[ocrmac/Apple Vision 执行高精度 OCR]
+    E --> F[清洗规范化: 过滤中文、合并连字符与格式处理]
+    F --> G[macOS Cocoa NSSpellChecker 拼写纠错校验]
+    G -->|校验通过| H[(写入 SQLite words 表)]
+    G -->|校验未通过| I[写入 rejected_words.csv 待核对]
+```
+
+详细的数据库 schema 结构请阅读：[docs/database.md](docs/database.md)。
+
+---
+
+### 🛠️ 人工复核与数据维护
+
+由于扫描版大纲排版复杂，OCR 可能会遗漏或误判部分特殊词汇。我们推荐以下协同流程：
+
+1. **检查误判词**：在 `output/rejected_words.csv` 中查看被拼写检查拦截的可疑单词。当前文件包含 `word`、`reason` 和 `source` 三列；其中 `source` 内包含原始来源标记，可用于回溯页码、栏位和行号信息。
+2. **人工补录**：若确认该词确实为大纲词，使用 `add-words` 子命令手动将其补录入 SQLite 库中：
+   ```bash
+   uv run neepwords add-words \
+     --db-path output/words.sqlite3 \
+     --version 2026 \
+     --entry "endeavour:26大纲-81页-L-2" \
+     --entry "favourite:26大纲-86页-L-8"
+   ```
+3. **CSV 灵活导出**：
+   ```bash
+   uv run neepwords export-csv \
+     --db-path output/words.sqlite3 \
+     --csv-path output/2026_words_export.csv \
+     --version 2026
+   ```
+
+---
+
+## 🧪 开发者指南
+
+如果您想为本项目贡献代码，请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+### 1. 安装开发与测试依赖
+```bash
+uv sync --all-extras --group dev
+```
+
+### 2. 运行单元测试
+```bash
+uv run pytest -v
+```
+
+### 3. 代码风格与 Lint 检查
+本项目使用 `ruff` 规范代码风格，并在提交前运行 lint 校验：
+```bash
+# 格式化与修复常见问题
+uv run ruff format
+uv run ruff check --fix
+```
+
+---
+
+## ⚖️ 许可与边界
+* 软件代码遵循 [MIT 许可证](LICENSE) 发布。
+* 本项目仓库内内置 of 示例数据库仅供查询演示使用。如您公开或二次分发使用本项目提取的任何大纲词汇数据，请自行承担版权风险并确保在合法范围内使用。

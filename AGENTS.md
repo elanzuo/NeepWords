@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Overview & Docs
-- Goal: Extract vocabulary from specified page ranges of the scanned 《考研考试大纲.pdf》.
+- Goal: Provide two local skill workflows plus an OCR pipeline for Kaoyan English vocabulary: local lookup/printing from word lists, and extraction from scanned 《考研考试大纲.pdf》 into SQLite.
 - Design doc: `docs/design.md`.
 
 ## Project Structure & Module Organization
@@ -13,6 +13,9 @@
 ## Functional Flow (Current)
 - PDF -> image rendering -> crop/split -> OCR -> normalize/expand -> spellcheck -> output.
 - Spellcheck: Cocoa `NSSpellChecker` by default. Failures go to `output/rejected_words.csv` unless configured to write into DB.
+- Bundled skills:
+  - `skills/kaoyan-vocab-lookup`: local SQLite lookup, search, version listing, default-version switching.
+  - `skills/kaoyan-vocab-sheet`: turn pasted words or txt/csv word lists into printable review PDFs, optionally XLSX.
 - Outputs:
   - SQLite: `output/words.sqlite3` with `vocab_versions` and `words` tables. `words` stores canonical lowercase words and is unique per `(version_id, word)`.
   - CSV (optional): `output/rejected_words.csv` columns `word/reason/source/page/column/line`.
@@ -29,7 +32,7 @@
 - Use 4-space indentation and standard PEP 8 naming (e.g., `snake_case` for functions/variables).
 - Keep modules small and focused (e.g., `ocr.py`, `pdf_render.py`, `cleaning.py`).
 - Prefer explicit, descriptive names for OCR stages (e.g., `split_columns`, `filter_footer`).
-- No formatter or linter is configured yet; if added, document it here.
+- Ruff is configured for import sorting and basic lint checks; keep docs and CI guidance aligned with the current config.
 
 ## Testing Guidelines
 - Tests use `pytest` and live under `tests/`.
@@ -48,3 +51,4 @@
 - Image processing: `PIL` for header/footer cropping and vertical split into left/right columns.
 - OCR engine: `ocrmac` (Apple Vision) as the primary OCR backend.
 - Skill CLI: `skills/kaoyan-vocab-lookup/scripts/neep_vocab.py` for local lookup, version listing, and default-version switching. The skill is self-contained, falls back to its bundled example DB for read commands, and requires an explicit writable DB path for default-version changes.
+- Skill CLI: `skills/kaoyan-vocab-sheet/scripts/vocab_sheet.py` for turning word lists into printable review sheets, defaulting to PDF output and generating XLSX only when explicitly requested.

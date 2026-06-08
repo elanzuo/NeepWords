@@ -6,7 +6,7 @@
 ## Changes
 
 - Describe the main implementation changes
-- Mention any CLI, MCP, schema, or packaging changes
+- Mention any CLI, skill, schema, or packaging changes
 
 ## Validation
 
@@ -18,7 +18,7 @@
 
 - [ ] No user-facing behavior change
 - [ ] CLI behavior changed
-- [ ] MCP behavior changed
+- [ ] Skill behavior changed
 - [ ] Documentation updated
 
 If behavior changed, include a short example:
