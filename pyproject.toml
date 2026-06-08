@@ -1,11 +1,11 @@
 [project]
 name = "NeepWords"
 version = "0.1.0"
-description = "Local OCR, SQLite, and MCP tooling for NEEP postgraduate exam vocabulary lookup."
+description = "Local OCR and SQLite tooling for NEEP postgraduate exam vocabulary extraction."
 readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "MIT" }
-keywords = ["neep", "vocabulary", "ocr", "sqlite", "mcp", "education"]
+keywords = ["neep", "vocabulary", "ocr", "sqlite", "education"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Education",
@@ -20,7 +20,6 @@ classifiers = [
     "Topic :: Text Processing",
 ]
 dependencies = [
-    "mcp",
     "pillow>=12.1.0",
     "pypdfium2>=5.3.0",
 ]
@@ -49,7 +48,7 @@ requires = ["hatchling>=1.25.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/word_extractor", "src/neep_mcp"]
+packages = ["src/word_extractor"]
 
 [tool.uv]
 package = true
@@ -110,7 +109,7 @@ ignore = [
 
 [tool.ruff.lint.isort]
 # 导入排序宽松配置
-known-first-party = ["word_extractor", "neep_mcp"]
+known-first-party = ["word_extractor"]
 split-on-trailing-comma = false
 force-single-line = false
 

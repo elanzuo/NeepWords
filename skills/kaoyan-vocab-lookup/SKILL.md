@@ -1,12 +1,11 @@
 ---
-name: kaoyan-vocab-db
+name: kaoyan-vocab-lookup
 description: >
   Local lookup and explicit default-version management for a Kaoyan vocabulary
-  SQLite lexicon without MCP. Use when checking whether English
+  SQLite lexicon. Use when checking whether English
   words exist in the stored word list, searching matching words, listing
   available/default versions, or changing the database default version only
-  when the user explicitly asks. Do not use for PDF/OCR extraction or serving
-  external queries through MCP. Inputs: English words, search patterns, or a
+  when the user explicitly asks. Do not use for PDF/OCR extraction. Inputs: English words, search patterns, or a
   target version, with optional version and database path overrides. Outputs:
   deterministic JSON from the bundled CLI with command, ok, data, warnings, and
   structured errors. Preconditions: run from the skill directory with uv
@@ -44,7 +43,6 @@ Use it for:
 Do not use it for:
 
 - Extracting words from PDF pages or OCR pipelines
-- Starting an MCP server for external clients
 
 ## Commands
 
@@ -141,5 +139,4 @@ UV_CACHE_DIR=/tmp/uv-cache uv run scripts/neep_vocab.py lookup --json transition
 Do not trigger this skill for:
 
 - "从 PDF 第 50 页提取考研词汇"
-- "帮我启动一个 MCP 服务供别的客户端查询"
-- The query is only about OCR processing, PDF rendering, or MCP configuration rather than local lexicon access
+- The query is only about OCR processing or PDF rendering rather than local lexicon access

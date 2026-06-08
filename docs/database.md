@@ -37,9 +37,9 @@
 
 ## 查询版本解析优先级
 
-查询入口（skill、MCP、本地 CLI）按以下顺序决定版本：
+查询入口（skill、本地 CLI）按以下顺序决定版本：
 
-1. 显式参数，如 `--version 2027` 或 MCP `version="2027"`
+1. 显式参数，如 `--version 2027`
 2. 环境变量 `NEEP_WORDS_VERSION`
 3. 仓库根目录 `neep.toml` 中 `[words].default_version`
 4. 数据库中 `vocab_versions.is_default = 1`
@@ -59,7 +59,7 @@ default_version = "2027"
 
 ## 数据库路径解析优先级
 
-查询入口（skill、MCP、本地 lookup/search CLI）按以下顺序决定数据库路径：
+查询入口（skill、本地 lookup/search CLI）按以下顺序决定数据库路径：
 
 1. 显式参数，如 `--db-path`
 2. 环境变量 `NEEP_WORDS_DB_PATH`
@@ -82,15 +82,9 @@ default_version = "2027"
 
 ## 旧库迁移
 
-旧单版本库的 `words(word UNIQUE)` 无法自动判断属于哪一年，迁移时必须显式指定：
+旧单版本库的 `words(word UNIQUE)` 无法自动判断属于哪一年。当前源码侧不再提供迁移命令；如需迁移，请通过外部脚本或单独的 skill/workflow 显式指定旧版本。
 
-```bash
-uv run python -m word_extractor migrate-db \
-  --db-path output/words.sqlite3 \
-  --legacy-version 2026
-```
-
-或者在首次向旧库导入新版本时一并提供旧版本：
+首次向旧库导入新版本时，仍可一并提供旧版本：
 
 ```bash
 uv run python -m word_extractor \
@@ -104,19 +98,7 @@ uv run python -m word_extractor \
 
 ## 版本管理命令
 
-查看数据库中已有版本：
-
-```bash
-uv run python -m word_extractor list-versions --db-path output/words.sqlite3
-```
-
-切换数据库默认版本：
-
-```bash
-uv run python -m word_extractor set-default-version \
-  --db-path output/words.sqlite3 \
-  --version 2027
-```
+数据库版本查询与默认版本切换现在通过 `skills/kaoyan-vocab-lookup` 提供，不再由源码侧 `word_extractor` CLI 暴露。
 
 ## 示例数据
 

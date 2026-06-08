@@ -1,19 +1,9 @@
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 
-import pytest
-
-from neep_mcp.lexicon import WordsLexicon, build_lexicon
-
-SKILL_DIR = Path.cwd() / "skills" / "kaoyan-vocab-db"
-
-
-@pytest.fixture
-def lexicon(sample_words_db: Path) -> WordsLexicon:
-    return WordsLexicon(sample_words_db)
+SKILL_DIR = Path.cwd() / "skills" / "kaoyan-vocab-lookup"
 
 
 def run_skill_command(
@@ -28,77 +18,17 @@ def run_skill_command(
     )
 
 
-def test_lookup_words_uses_db_default_version(lexicon: WordsLexicon):
-    payload, warnings = lexicon.lookup_words(["abandon", "zxqjz_qwerty"])
-
-    assert "multiple_tokens_found_using_longest" in warnings
-    assert payload["version"] == "2026"
-    assert payload["version_source"] == "db_default"
-
-    found = next(item for item in payload["results"] if item["input"] == "abandon")
-    missing = next(item for item in payload["results"] if item["input"] == "zxqjz_qwerty")
-
-    assert found["found"] is True
-    assert found["word"].lower() == "abandon"
-    assert found["version"] == "2026"
-    assert missing["found"] is False
-    assert missing["query"] == "qwerty"
-    assert missing["version"] == "2026"
-
-
-def test_search_words_supports_explicit_version(lexicon: WordsLexicon):
-    payload, warnings = lexicon.search_words(
-        "form",
-        mode="contains",
-        limit=20,
-        offset=0,
-        version="2027",
-    )
-
-    assert warnings == []
-    assert payload["mode"] == "contains"
-    assert payload["limit"] == 20
-    assert payload["offset"] == 0
-    assert payload["version"] == "2027"
-    assert payload["version_source"] == "explicit"
-    assert payload["results"]
-    assert all("form" in item["word"].lower() for item in payload["results"])
-    assert {item["word"] for item in payload["results"]} == {"formation"}
-
-
-def test_build_lexicon_uses_env_default_version(
-    sample_words_db: Path, monkeypatch: pytest.MonkeyPatch
-):
-    monkeypatch.setenv("NEEP_WORDS_DB_PATH", os.fspath(sample_words_db))
-    monkeypatch.setenv("NEEP_WORDS_VERSION", "27考研")
-
-    lexicon = build_lexicon(start=Path.cwd())
-    payload, warnings = lexicon.lookup_words(["adaptive"])
-
-    assert warnings == []
-    assert payload["version"] == "2027"
-    assert payload["version_source"] == "configured"
-    assert payload["results"][0]["found"] is True
-
-
 def test_skill_query_script_json_output(sample_words_db: Path):
     env = {**os.environ, "NEEP_WORDS_DB_PATH": str(sample_words_db), "NEEP_WORDS_VERSION": "2027"}
-    result = subprocess.run(
-        [
-            sys.executable,
-            "skills/kaoyan-vocab-db/scripts/neep_vocab.py",
-            "lookup",
-            "--json",
-            "adaptive",
-            "zxqjz_qwerty",
-        ],
-        cwd=Path.cwd(),
+    result = run_skill_command(
+        "lookup",
+        "--json",
+        "adaptive",
+        "zxqjz_qwerty",
         env=env,
-        capture_output=True,
-        text=True,
-        check=True,
     )
 
+    assert result.returncode == 0
     response = json.loads(result.stdout)
     assert response["ok"] is True
     assert response["command"] == "lookup"
@@ -113,25 +43,18 @@ def test_skill_query_script_json_output(sample_words_db: Path):
 
 def test_skill_search_script_json_output(sample_words_db: Path):
     env = {**os.environ, "NEEP_WORDS_DB_PATH": str(sample_words_db)}
-    result = subprocess.run(
-        [
-            sys.executable,
-            "skills/kaoyan-vocab-db/scripts/neep_vocab.py",
-            "search",
-            "--json",
-            "--mode",
-            "contains",
-            "--version",
-            "2027",
-            "form",
-        ],
-        cwd=Path.cwd(),
+    result = run_skill_command(
+        "search",
+        "--json",
+        "--mode",
+        "contains",
+        "--version",
+        "2027",
+        "form",
         env=env,
-        capture_output=True,
-        text=True,
-        check=True,
     )
 
+    assert result.returncode == 0
     response = json.loads(result.stdout)
     assert response["ok"] is True
     assert response["command"] == "search"
@@ -143,20 +66,9 @@ def test_skill_search_script_json_output(sample_words_db: Path):
 
 def test_skill_list_versions_script_json_output(sample_words_db: Path):
     env = {**os.environ, "NEEP_WORDS_DB_PATH": str(sample_words_db)}
-    result = subprocess.run(
-        [
-            sys.executable,
-            "skills/kaoyan-vocab-db/scripts/neep_vocab.py",
-            "list-versions",
-            "--json",
-        ],
-        cwd=Path.cwd(),
-        env=env,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    result = run_skill_command("list-versions", "--json", env=env)
 
+    assert result.returncode == 0
     response = json.loads(result.stdout)
     assert response["ok"] is True
     assert response["command"] == "list_versions"
@@ -168,22 +80,15 @@ def test_skill_list_versions_script_json_output(sample_words_db: Path):
 
 def test_skill_set_default_version_script_json_output(sample_words_db: Path):
     env = {**os.environ, "NEEP_WORDS_DB_PATH": str(sample_words_db)}
-    result = subprocess.run(
-        [
-            sys.executable,
-            "skills/kaoyan-vocab-db/scripts/neep_vocab.py",
-            "set-default-version",
-            "--json",
-            "--version",
-            "2027",
-        ],
-        cwd=Path.cwd(),
+    result = run_skill_command(
+        "set-default-version",
+        "--json",
+        "--version",
+        "2027",
         env=env,
-        capture_output=True,
-        text=True,
-        check=True,
     )
 
+    assert result.returncode == 0
     response = json.loads(result.stdout)
     assert response["ok"] is True
     assert response["command"] == "set_default_version"
@@ -191,20 +96,8 @@ def test_skill_set_default_version_script_json_output(sample_words_db: Path):
     assert response["data"]["version"] == "2027"
     assert response["data"]["is_default"] is True
 
-    follow_up = subprocess.run(
-        [
-            sys.executable,
-            "skills/kaoyan-vocab-db/scripts/neep_vocab.py",
-            "lookup",
-            "--json",
-            "adaptive",
-        ],
-        cwd=Path.cwd(),
-        env=env,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    follow_up = run_skill_command("lookup", "--json", "adaptive", env=env)
+    assert follow_up.returncode == 0
     follow_up_response = json.loads(follow_up.stdout)
     assert follow_up_response["data"]["version"] == "2027"
     assert follow_up_response["data"]["version_source"] == "db_default"
@@ -212,21 +105,9 @@ def test_skill_set_default_version_script_json_output(sample_words_db: Path):
 
 def test_skill_lookup_script_reports_invalid_input_as_item_status(sample_words_db: Path):
     env = {**os.environ, "NEEP_WORDS_DB_PATH": str(sample_words_db)}
-    result = subprocess.run(
-        [
-            sys.executable,
-            "skills/kaoyan-vocab-db/scripts/neep_vocab.py",
-            "lookup",
-            "--json",
-            "中文",
-        ],
-        cwd=Path.cwd(),
-        env=env,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    result = run_skill_command("lookup", "--json", "中文", env=env)
 
+    assert result.returncode == 0
     response = json.loads(result.stdout)
     assert response["ok"] is True
     assert response["command"] == "lookup"
@@ -244,21 +125,7 @@ def test_skill_lookup_script_reports_invalid_input_as_item_status(sample_words_d
 
 def test_skill_search_script_reports_structured_error(sample_words_db: Path):
     env = {**os.environ, "NEEP_WORDS_DB_PATH": str(sample_words_db)}
-    result = subprocess.run(
-        [
-            sys.executable,
-            "skills/kaoyan-vocab-db/scripts/neep_vocab.py",
-            "search",
-            "--json",
-            "--mode",
-            "wildcard",
-            "%%",
-        ],
-        cwd=Path.cwd(),
-        env=env,
-        capture_output=True,
-        text=True,
-    )
+    result = run_skill_command("search", "--json", "--mode", "wildcard", "%%", env=env)
 
     assert result.returncode == 2
     response = json.loads(result.stderr)

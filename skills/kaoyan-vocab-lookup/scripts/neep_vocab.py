@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.11"
 # ///
-"""Local CLI for direct Kaoyan vocabulary access without MCP."""
+"""Local CLI for direct Kaoyan vocabulary access."""
 
 from __future__ import annotations
 
@@ -585,7 +585,7 @@ def _add_shared_args(parser: argparse.ArgumentParser) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Access the local Kaoyan vocabulary database without MCP.",
+        description="Access the local Kaoyan vocabulary database.",
         epilog=(
             "Examples:\n"
             "  uv run scripts/neep_vocab.py lookup --json abandon derive inevitable\n"

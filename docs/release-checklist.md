@@ -27,7 +27,7 @@ If the release changes OCR behavior on macOS:
 ## Documentation Check
 
 - Update README examples if commands or defaults changed
-- Update docs for schema, version resolution, or MCP tool behavior changes
+- Update docs for schema, version resolution, or skill behavior changes
 - Add release notes summarizing user-visible changes
 
 ## GitHub Release
@@ -47,5 +47,5 @@ If the release changes OCR behavior on macOS:
 
 - Smoke-test install from a clean environment
 - Verify `uv run neepwords --help` works after install
-- Verify MCP server startup instructions still work
+- Verify skill usage instructions still work
 - Triage any release regressions quickly

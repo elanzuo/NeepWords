@@ -8,10 +8,10 @@ NeepWords 是一个面向考研英语词表场景的本地工具集，用来解�
 项目提供三类能力：
 
 - OCR 提取：从扫描版《考试大纲》PDF 中抽取词汇，写入本地 SQLite。
-- 词表查询与检索：通过 MCP server 或本地 skill，让 AI 助手基于本地词库回答“是不是考研词”，并支持前缀、后缀、包含、模糊匹配和通配符搜索。
+- 词表查询与检索：通过本地 skills，让 AI 助手基于本地词库回答“是不是考研词”，并支持前缀、后缀、包含、模糊匹配和通配符搜索。
 - 多版本管理：同一个 SQLite 可同时保存 `2026`、`2027`、`2028` 等多个考研版本。
 
-项目当前主要针对 macOS Apple Silicon 优化；其中 OCR 与 Cocoa 拼写检查依赖 macOS，查询能力可脱离 OCR 独立使用。
+项目当前主要针对 macOS Apple Silicon 优化；其中 OCR 与 Cocoa 拼写检查依赖 macOS，skills 查询能力可脱离 OCR 独立使用。
 
 ## Quick Start
 
@@ -23,9 +23,9 @@ NeepWords 是一个面向考研英语词表场景的本地工具集，用来解�
 
 ```bash
 uv sync
-uv run skills/kaoyan-vocab-db/scripts/neep_vocab.py list-versions --json
-uv run skills/kaoyan-vocab-db/scripts/neep_vocab.py lookup --json transition
-uv run skills/kaoyan-vocab-db/scripts/neep_vocab.py search --json --mode prefix trans
+uv run skills/kaoyan-vocab-lookup/scripts/neep_vocab.py list-versions --json
+uv run skills/kaoyan-vocab-lookup/scripts/neep_vocab.py lookup --json transition
+uv run skills/kaoyan-vocab-lookup/scripts/neep_vocab.py search --json --mode prefix trans
 ```
 
 你会看到类似结果：
@@ -49,19 +49,11 @@ uv run neepwords --pdf /path/to/outline.pdf \
   --split-offset -0.1
 ```
 
-### 3. 启动 MCP server
-
-```bash
-uv sync
-uv run python -m neep_mcp.server
-```
-
 ## 平台支持
 
 | 能力 | macOS | Linux / Windows |
 | --- | --- | --- |
 | SQLite 查询 | Supported | Supported |
-| MCP server | Supported | Supported |
 | 示例库演示 | Supported | Supported |
 | PDF OCR 提取 | Supported | Not supported |
 | Cocoa 拼写检查 | Supported | Not supported |
@@ -77,7 +69,7 @@ uv run python -m neep_mcp.server
 
 - Python: `>= 3.13`
 - Package manager: `uv`
-- 默认安装：包含 SQLite、CLI、MCP、示例查询所需依赖
+- 默认安装：包含 SQLite、CLI、示例查询所需依赖
 - `macos` extra：额外安装 `ocrmac` 与 `pyobjc-framework-cocoa`，用于 OCR 提取与 Cocoa 拼写检查
 
 ## 提取词汇 CLI
@@ -185,34 +177,6 @@ uv run neepwords export-csv \
 - `--columns`：导出列，默认 `word,source`
 - `--version`：按指定版本过滤导出
 
-### 迁移与版本管理
-
-旧单版本库迁移：
-
-```bash
-uv run neepwords migrate-db --db-path output/words.sqlite3 --legacy-version 2026
-```
-
-查看库中版本：
-
-```bash
-uv run neepwords list-versions --db-path output/words.sqlite3
-```
-
-切换数据库默认版本：
-
-```bash
-uv run neepwords set-default-version --db-path output/words.sqlite3 --version 2027
-```
-
-未显式指定版本时，解析顺序为：
-
-1. 显式参数
-2. 环境变量 `NEEP_WORDS_VERSION`
-3. `neep.toml` 中 `[words].default_version`
-4. 数据库默认版本
-5. 数据库唯一版本
-
 ### 原理与流程
 
 整体流程基于“渲染 -> 图像处理 -> OCR -> 规范化/扩展 -> 拼写检查 -> 入库/导出”的流水线：
@@ -224,77 +188,19 @@ uv run neepwords set-default-version --db-path output/words.sqlite3 --version 20
 5. Cocoa 拼写检查：通过的词进入数据库；未通过的词写入 `rejected_words.csv` 或按配置写入数据库
 6. 写入 `words.sqlite3`，按 `(version_id, word)` 唯一入库，并记录 `added_at`
 
-## MCP Server
-
-本项目提供只读 MCP server `neep_mcp`，用于查询本地词库。
-
-<img src="resources/img/mcp.png" alt="MCP 示例截图" width="768">
-
-### Tools
-
-- `lookup_words`：批量精确查询，支持 `match=word|auto` 和 `version`
-- `search_words`：模糊搜索，支持 `prefix` / `suffix` / `contains` / `fuzzy` / `wildcard`
-- `list_versions`：列出数据库中的版本、词数和默认版本
-
-启动：
-
-```bash
-uv run python -m neep_mcp.server
-```
-
-可选环境变量：
-
-```bash
-NEEP_WORDS_DB_PATH=/path/to/words.sqlite3
-NEEP_WORDS_VERSION=2027
-```
-
-默认数据库解析顺序：
-
-1. `--db-path` 或 MCP 客户端显式配置
-2. `NEEP_WORDS_DB_PATH`
-3. `neep.toml` 中 `[words].db_path`
-4. `output/words.sqlite3`
-5. `resources/examples/words.sqlite3`
-
-也就是说，查询入口会优先使用你的工作库；只有工作库不存在时，才会回退到仓库附带的示例库。
-
-MCP 配置示例：
-
-```json
-{
-  "mcpServers": {
-    "neep-words": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--project",
-        "<ProjectPath>",
-        "python",
-        "-m",
-        "neep_mcp.server"
-      ],
-      "env": {
-        "NEEP_WORDS_DB_PATH": "<ProjectPath>/output/words.sqlite3",
-        "NEEP_WORDS_VERSION": "2027"
-      }
-    }
-  }
-}
-```
-
 ## Agent Skill
 
-如果你在 Codex 类代理环境中使用本仓库，也可以通过内置 skill 查询和管理本地词库，而不经过 MCP：
+如果你在 Codex 类代理环境中使用本仓库，可以通过内置 skill 查询和管理本地词库：
 
 ```bash
-uv run skills/kaoyan-vocab-db/scripts/neep_vocab.py lookup --json --version 2027 adaptive
-uv run skills/kaoyan-vocab-db/scripts/neep_vocab.py search --json --mode prefix trans
-uv run skills/kaoyan-vocab-db/scripts/neep_vocab.py list-versions --json
-uv run skills/kaoyan-vocab-db/scripts/neep_vocab.py set-default-version --db-path /path/to/words.sqlite3 --json --version 2027
+uv run skills/kaoyan-vocab-lookup/scripts/neep_vocab.py lookup --json --version 2027 adaptive
+uv run skills/kaoyan-vocab-lookup/scripts/neep_vocab.py search --json --mode prefix trans
+uv run skills/kaoyan-vocab-lookup/scripts/neep_vocab.py list-versions --json
+uv run skills/kaoyan-vocab-lookup/scripts/neep_vocab.py set-default-version --db-path /path/to/words.sqlite3 --json --version 2027
 ```
 
-- skill 目录：`skills/kaoyan-vocab-db/`，同时覆盖本地查询与显式默认版本切换
+- skill 目录：`skills/kaoyan-vocab-lookup/`，同时覆盖本地查询与显式默认版本切换
+- 源码侧 CLI 仅保留提取词汇、`add-words`、`export-csv`
 - 数据库解析顺序：`--db-path` -> `NEEP_WORDS_DB_PATH` -> skill 自带 `examples/words.sqlite3`（仅读命令）
 - 版本解析顺序：`--version` -> `NEEP_WORDS_VERSION` -> 数据库默认版本 -> 唯一版本
 - 成功 JSON 统一返回：`command`、`ok`、`data`、`warnings`、`error`
@@ -305,4 +211,3 @@ uv run skills/kaoyan-vocab-db/scripts/neep_vocab.py set-default-version --db-pat
 - PDF 渲染：pypdfium2
 - 图像处理：PIL (Pillow)
 - OCR 引擎：ocrmac (Apple Vision)
-- MCP Server：FastMCP (`mcp`)

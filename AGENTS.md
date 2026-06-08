@@ -3,11 +3,9 @@
 ## Project Overview & Docs
 - Goal: Extract vocabulary from specified page ranges of the scanned 《考研考试大纲.pdf》.
 - Design doc: `docs/design.md`.
-- MCP server design: `docs/mcp_design.md`.
 
 ## Project Structure & Module Organization
 - `src/word_extractor/main.py` contains the CLI entry point.
-- `src/neep_mcp/server.py` contains the MCP server entry point.
 - `pyproject.toml` defines project metadata and the required Python version (>= 3.13).
 - `resources/` is intended for input assets (e.g., source PDFs, sample images) and derived artifacts.
 - `tmp.txt` is a scratch file; do not depend on it for production behavior.
@@ -23,9 +21,6 @@
 
 ## Build, Test, and Development Commands
 - `python -m word_extractor --help` shows CLI usage.
-- `python -m word_extractor list-versions --db-path output/words.sqlite3` lists stored vocabulary versions.
-- `python -m word_extractor set-default-version --db-path output/words.sqlite3 --version 2027` switches the DB default version.
-- `python -m neep_mcp.server` starts the MCP server.
 - `uv run pytest -q` runs the test suite.
 - Use `uv` as the project manager; install dependencies with `uv add` by default.
 - There is no build pipeline yet. When OCR logic is added, prefer a CLI entry point (e.g., `python -m word_extractor ...`).
@@ -52,5 +47,4 @@
 - PDF to images: `pypdfium2` for high-fidelity page rendering (scanned PDFs first step).
 - Image processing: `PIL` for header/footer cropping and vertical split into left/right columns.
 - OCR engine: `ocrmac` (Apple Vision) as the primary OCR backend.
-- MCP server: `mcp` (FastMCP) for read-only word queries.
-- Skill CLI: `skills/kaoyan-vocab-db/scripts/neep_vocab.py` for local lookup, version listing, and default-version switching without MCP. The skill is self-contained, falls back to its bundled example DB for read commands, and requires an explicit writable DB path for default-version changes.
+- Skill CLI: `skills/kaoyan-vocab-lookup/scripts/neep_vocab.py` for local lookup, version listing, and default-version switching. The skill is self-contained, falls back to its bundled example DB for read commands, and requires an explicit writable DB path for default-version changes.
