@@ -1,0 +1,5 @@
+bypass
+quantify
+disposition
+consequence
+transition

@@ -1,22 +1,36 @@
 ---
-name: neep-vocab
+name: kaoyan-vocab-db
 description: >
-  Local lookup and explicit default-version management for this repository's
-  NEEP vocabulary SQLite lexicon without MCP. Use when checking whether English
+  Local lookup and explicit default-version management for a Kaoyan vocabulary
+  SQLite lexicon without MCP. Use when checking whether English
   words exist in the stored word list, searching matching words, listing
   available/default versions, or changing the database default version only
   when the user explicitly asks. Do not use for PDF/OCR extraction or serving
   external queries through MCP. Inputs: English words, search patterns, or a
   target version, with optional version and database path overrides. Outputs:
   deterministic JSON from the bundled CLI with command, ok, data, warnings, and
-  structured errors. Preconditions: run from this repository with uv available
-  and a readable SQLite words database; changing the default version requires a
-  writable database and persists state.
+  structured errors. Preconditions: run from the skill directory with uv
+  available and a readable SQLite words database; changing the default version
+  requires a writable versioned database and persists state.
 ---
 
-# NEEP Vocab
+# Kaoyan Vocab DB
 
 Use the bundled CLI instead of reimplementing SQL.
+
+## Tool Location
+
+Run from the skill directory. Do not call bare Python directly. Always use `uv run`.
+
+Main command:
+
+```bash
+uv run scripts/neep_vocab.py
+```
+
+## Available Scripts
+
+- `scripts/neep_vocab.py` - Query a Kaoyan vocabulary SQLite database and manage the explicit default version
 
 ## Scope
 
@@ -34,14 +48,14 @@ Do not use it for:
 
 ## Commands
 
-Run commands from the repository root:
+Run commands from the skill directory:
 
 ```bash
-uv run python skills/neep-vocab/scripts/neep_vocab.py lookup --json abandon derive inevitable
-uv run python skills/neep-vocab/scripts/neep_vocab.py search --json --mode prefix trans
-uv run python skills/neep-vocab/scripts/neep_vocab.py lookup --json --version 2027 adaptive
-uv run python skills/neep-vocab/scripts/neep_vocab.py list-versions --json
-uv run python skills/neep-vocab/scripts/neep_vocab.py set-default-version --json --version 2027
+uv run scripts/neep_vocab.py lookup --json abandon derive inevitable
+uv run scripts/neep_vocab.py search --json --mode prefix trans
+uv run scripts/neep_vocab.py lookup --json --version 2027 adaptive
+uv run scripts/neep_vocab.py list-versions --json
+uv run scripts/neep_vocab.py set-default-version --db-path /path/to/words.sqlite3 --json --version 2027
 ```
 
 Prefer `--json` for agent use. Parse the JSON and summarize only what the command returns.
@@ -59,13 +73,11 @@ The CLI resolves the database in this order:
 
 1. `--db-path`
 2. `NEEP_WORDS_DB_PATH`
-3. `neep.toml` -> `[words].db_path`
-4. `output/words.sqlite3`
-5. `resources/examples/words.sqlite3`
+3. `examples/words.sqlite3` (read commands only)
 
-By default, query commands prefer the user's extracted working database in `output/words.sqlite3`.
-If that file does not exist, they fall back to the repository's read-only seed database in `resources/examples/words.sqlite3`.
-If the user is asking about a non-default extraction target, pass `--db-path` explicitly.
+By default, `lookup`, `search`, and `list-versions` fall back to the skill's bundled read-only example database.
+`set-default-version` does not use the example database implicitly; it requires `--db-path` or `NEEP_WORDS_DB_PATH`.
+If the user is asking about a non-default target, pass `--db-path` explicitly.
 
 ## Version Selection
 
@@ -73,13 +85,12 @@ The CLI resolves the query version in this order:
 
 1. `--version`
 2. `NEEP_WORDS_VERSION`
-3. `neep.toml` -> `[words].default_version`
-4. Database default version
-5. The only version in the database
+3. Database default version
+4. The only version in the database
 
 When the user explicitly asks for "27 考研" or similar, pass `--version 2027`.
 If the user does not specify a version, rely on the resolution order above and report the resolved version when it matters.
-If the user explicitly asks to change the database default version, use `set-default-version` instead of suggesting env/config overrides.
+If the user explicitly asks to change the database default version, use `set-default-version` instead of suggesting config overrides.
 
 ## Response Rules
 
@@ -99,7 +110,7 @@ If the user explicitly asks to change the database default version, use `set-def
 - `lookup` supports `--match auto|word`. Use `auto` unless the user explicitly wants strict `word` matching.
 - `lookup/search` both support `--version`.
 - `list-versions` does not use `--version`.
-- `set-default-version` requires `--version` and targets the writable database default.
+- `set-default-version` requires `--version` and a writable versioned database path.
 - Non-wildcard input is normalized to the longest English token and lowercased before querying.
 - Wildcard search accepts letters plus `-`, `%`, and `_`.
 - `lookup` can return mixed per-item statuses in one successful response.
@@ -107,11 +118,23 @@ If the user explicitly asks to change the database default version, use `set-def
 
 ## Dependencies And Side Effects
 
-- Requires `uv` and the project Python environment
-- Requires running from this repository so relative defaults resolve correctly
-- Reads `NEEP_WORDS_DB_PATH`, `NEEP_WORDS_VERSION`, and optional `neep.toml`
-- Lookup/search/list commands read SQLite state only
+- Requires `uv`
+- Reads `NEEP_WORDS_DB_PATH` and `NEEP_WORDS_VERSION`
+- `lookup/search/list-versions` read SQLite state only
 - `set-default-version` writes to the target SQLite database and persists the new default version
+
+## Setup/Repair
+
+Dependency setup is automatic because the script uses inline `uv` metadata.
+
+If the environment is sandboxed and the default cache path is not writable, prefix commands with `UV_CACHE_DIR=/tmp/uv-cache`.
+
+Examples:
+
+```bash
+uv run scripts/neep_vocab.py list-versions --json
+UV_CACHE_DIR=/tmp/uv-cache uv run scripts/neep_vocab.py lookup --json transition
+```
 
 ## Boundary Examples
 

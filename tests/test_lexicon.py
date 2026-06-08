@@ -8,10 +8,24 @@ import pytest
 
 from neep_mcp.lexicon import WordsLexicon, build_lexicon
 
+SKILL_DIR = Path.cwd() / "skills" / "kaoyan-vocab-db"
+
 
 @pytest.fixture
 def lexicon(sample_words_db: Path) -> WordsLexicon:
     return WordsLexicon(sample_words_db)
+
+
+def run_skill_command(
+    *args: str, cwd: Path | None = None, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["uv", "run", "scripts/neep_vocab.py", *args],
+        cwd=cwd or SKILL_DIR,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
 
 
 def test_lookup_words_uses_db_default_version(lexicon: WordsLexicon):
@@ -72,7 +86,7 @@ def test_skill_query_script_json_output(sample_words_db: Path):
     result = subprocess.run(
         [
             sys.executable,
-            "skills/neep-vocab/scripts/neep_vocab.py",
+            "skills/kaoyan-vocab-db/scripts/neep_vocab.py",
             "lookup",
             "--json",
             "adaptive",
@@ -102,7 +116,7 @@ def test_skill_search_script_json_output(sample_words_db: Path):
     result = subprocess.run(
         [
             sys.executable,
-            "skills/neep-vocab/scripts/neep_vocab.py",
+            "skills/kaoyan-vocab-db/scripts/neep_vocab.py",
             "search",
             "--json",
             "--mode",
@@ -132,7 +146,7 @@ def test_skill_list_versions_script_json_output(sample_words_db: Path):
     result = subprocess.run(
         [
             sys.executable,
-            "skills/neep-vocab/scripts/neep_vocab.py",
+            "skills/kaoyan-vocab-db/scripts/neep_vocab.py",
             "list-versions",
             "--json",
         ],
@@ -157,7 +171,7 @@ def test_skill_set_default_version_script_json_output(sample_words_db: Path):
     result = subprocess.run(
         [
             sys.executable,
-            "skills/neep-vocab/scripts/neep_vocab.py",
+            "skills/kaoyan-vocab-db/scripts/neep_vocab.py",
             "set-default-version",
             "--json",
             "--version",
@@ -180,7 +194,7 @@ def test_skill_set_default_version_script_json_output(sample_words_db: Path):
     follow_up = subprocess.run(
         [
             sys.executable,
-            "skills/neep-vocab/scripts/neep_vocab.py",
+            "skills/kaoyan-vocab-db/scripts/neep_vocab.py",
             "lookup",
             "--json",
             "adaptive",
@@ -201,7 +215,7 @@ def test_skill_lookup_script_reports_invalid_input_as_item_status(sample_words_d
     result = subprocess.run(
         [
             sys.executable,
-            "skills/neep-vocab/scripts/neep_vocab.py",
+            "skills/kaoyan-vocab-db/scripts/neep_vocab.py",
             "lookup",
             "--json",
             "中文",
@@ -233,7 +247,7 @@ def test_skill_search_script_reports_structured_error(sample_words_db: Path):
     result = subprocess.run(
         [
             sys.executable,
-            "skills/neep-vocab/scripts/neep_vocab.py",
+            "skills/kaoyan-vocab-db/scripts/neep_vocab.py",
             "search",
             "--json",
             "--mode",
@@ -255,3 +269,32 @@ def test_skill_search_script_reports_structured_error(sample_words_db: Path):
     assert response["error"]["code"] == "invalid_query"
     assert response["error"]["retryable"] is False
     assert "English letter" in response["error"]["hint"]
+
+
+def test_skill_reads_bundled_example_db_by_default():
+    result = run_skill_command("lookup", "--json", "transition")
+
+    assert result.returncode == 0
+    response = json.loads(result.stdout)
+    assert response["ok"] is True
+    assert response["command"] == "lookup"
+    assert response["data"]["results"][0]["found"] is True
+
+
+def test_skill_requires_explicit_write_db_path():
+    env = {key: value for key, value in os.environ.items() if key != "NEEP_WORDS_DB_PATH"}
+    result = run_skill_command("set-default-version", "--json", "--version", "2027", env=env)
+
+    assert result.returncode == 2
+    response = json.loads(result.stderr)
+    assert response["ok"] is False
+    assert response["command"] == "set_default_version"
+    assert response["error"]["code"] == "db_path_required_for_write"
+
+
+def test_skill_help_includes_examples():
+    result = run_skill_command("--help")
+
+    assert result.returncode == 0
+    assert "uv run scripts/neep_vocab.py lookup --json abandon derive inevitable" in result.stdout
+    assert "uv run scripts/neep_vocab.py set-default-version --db-path" in result.stdout

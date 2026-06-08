@@ -49,7 +49,7 @@ def test_set_default_version_cli_switches_default(sample_words_db: Path):
     result = subprocess.run(
         [
             sys.executable,
-            "skills/neep-vocab/scripts/neep_vocab.py",
+            "skills/kaoyan-vocab-db/scripts/neep_vocab.py",
             "lookup",
             "--json",
             "--db-path",

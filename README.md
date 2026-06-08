@@ -23,9 +23,9 @@ NeepWords 是一个面向考研英语词表场景的本地工具集，用来解�
 
 ```bash
 uv sync
-uv run python skills/neep-vocab/scripts/neep_vocab.py list-versions --json
-uv run python skills/neep-vocab/scripts/neep_vocab.py lookup --json transition
-uv run python skills/neep-vocab/scripts/neep_vocab.py search --json --mode prefix trans
+uv run skills/kaoyan-vocab-db/scripts/neep_vocab.py list-versions --json
+uv run skills/kaoyan-vocab-db/scripts/neep_vocab.py lookup --json transition
+uv run skills/kaoyan-vocab-db/scripts/neep_vocab.py search --json --mode prefix trans
 ```
 
 你会看到类似结果：
@@ -288,17 +288,17 @@ MCP 配置示例：
 如果你在 Codex 类代理环境中使用本仓库，也可以通过内置 skill 查询和管理本地词库，而不经过 MCP：
 
 ```bash
-uv run python skills/neep-vocab/scripts/neep_vocab.py lookup --json --version 2027 adaptive
-uv run python skills/neep-vocab/scripts/neep_vocab.py search --json --mode prefix trans
-uv run python skills/neep-vocab/scripts/neep_vocab.py list-versions --json
-uv run python skills/neep-vocab/scripts/neep_vocab.py set-default-version --json --version 2027
+uv run skills/kaoyan-vocab-db/scripts/neep_vocab.py lookup --json --version 2027 adaptive
+uv run skills/kaoyan-vocab-db/scripts/neep_vocab.py search --json --mode prefix trans
+uv run skills/kaoyan-vocab-db/scripts/neep_vocab.py list-versions --json
+uv run skills/kaoyan-vocab-db/scripts/neep_vocab.py set-default-version --db-path /path/to/words.sqlite3 --json --version 2027
 ```
 
-- skill 目录：`skills/neep-vocab/`，同时覆盖本地查询与显式默认版本切换
-- 数据库解析顺序：`--db-path` -> `NEEP_WORDS_DB_PATH` -> `neep.toml` -> `output/words.sqlite3` -> `resources/examples/words.sqlite3`
-- 版本解析顺序：`--version` -> `NEEP_WORDS_VERSION` -> `neep.toml` -> 数据库默认版本 -> 唯一版本
+- skill 目录：`skills/kaoyan-vocab-db/`，同时覆盖本地查询与显式默认版本切换
+- 数据库解析顺序：`--db-path` -> `NEEP_WORDS_DB_PATH` -> skill 自带 `examples/words.sqlite3`（仅读命令）
+- 版本解析顺序：`--version` -> `NEEP_WORDS_VERSION` -> 数据库默认版本 -> 唯一版本
 - 成功 JSON 统一返回：`command`、`ok`、`data`、`warnings`、`error`
-- `set-default-version` 会修改工作数据库默认版本，影响后续未显式指定版本的查询；只有在用户明确要求修改默认版本时才应触发该命令
+- `set-default-version` 需要显式 writable DB 路径或 `NEEP_WORDS_DB_PATH`；只有在用户明确要求修改默认版本时才应触发该命令
 
 ## 技术栈
 

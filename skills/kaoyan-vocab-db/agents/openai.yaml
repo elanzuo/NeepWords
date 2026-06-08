@@ -1,0 +1,4 @@
+interface:
+  display_name: "Kaoyan Vocab DB"
+  short_description: "Local Kaoyan vocab lookup and default-version admin"
+  default_prompt: "Use $kaoyan-vocab-db from the skill directory with `uv run scripts/neep_vocab.py` for local word lookup, search, version inspection, and only when explicitly requested, changing the default version stored in a writable SQLite database."
