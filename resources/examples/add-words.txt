@@ -1,0 +1,16 @@
+uv run neepwords add-words \
+    --db-path resources/examples/words.sqlite3 \
+    --version 2026 \
+    --entry "exemplify:26考研英语一考试大纲-83-R-13-exemplify" \
+    --entry "honor:26考研英语一考试大纲-96-R-7-hono(u)r" \
+    --entry "honour:26考研英语一考试大纲-96-R-7-hono(u)r" \
+    --entry "humourous:26考研英语一考试大纲-97-R-4-humo(u)rous" \
+    --entry "marvellous:26考研英语一考试大纲-109-R-16-marvel(l)ous" \
+    --entry "millimetre:26考研英语一考试大纲-111-R-13-millimetre / -ter" \
+    --entry "millimeter:26考研英语一考试大纲-111-R-13-millimetre / -ter" \
+    --entry "policewoman:26考研英语一考试大纲-125-L-3-policeman / policewoman" \
+    --entry "stone:26考研英语一考试大纲-147-R-17-storage" \
+    --entry "stool:26考研英语一考试大纲-147-R-18-storage" \
+    --entry "stoop:26考研英语一考试大纲-147-R-19-storage" \
+    --entry "stop:26考研英语一考试大纲-147-R-20-storage" \
+    --entry "store:26考研英语一考试大纲-147-R-22-storage"

@@ -13,7 +13,7 @@ description: >
   requires a writable versioned database and persists state.
 ---
 
-# Kaoyan Vocab DB
+# Kaoyan Vocab Lookup
 
 Use the bundled CLI instead of reimplementing SQL.
 

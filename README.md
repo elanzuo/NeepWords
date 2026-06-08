@@ -148,8 +148,8 @@ graph TD
    uv run neepwords add-words \
      --db-path output/words.sqlite3 \
      --version 2026 \
-     --entry "endeavour:26大纲-81页-L-2" \
-     --entry "favourite:26大纲-86页-L-8"
+     --entry "exemplify:26考研英语一考试大纲-83-R-13-exemplify" \
+     --entry "honor:26考研英语一考试大纲-96-R-7-hono(u)r"
    ```
 3. **CSV 灵活导出**：
    ```bash
