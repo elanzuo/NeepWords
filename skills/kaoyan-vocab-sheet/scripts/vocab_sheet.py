@@ -21,7 +21,7 @@ from typing import Iterable
 
 
 REVIEW_COLUMNS = ["D0", "D1", "D2", "D4", "D7", "D15", "D30"]
-CONTENT_COLUMNS = ["序号", "单词", "音标(美)", "释义", "助记", "考研搭配/短例句"]
+CONTENT_COLUMNS = ["序号", "单词", "音标(美)", "释义", "助记", "笔记"]
 ALL_COLUMNS = CONTENT_COLUMNS + REVIEW_COLUMNS
 PDF_FONT_CANDIDATES = [
     ("ArialUnicode", Path("/System/Library/Fonts/Supplemental/Arial Unicode.ttf")),
@@ -49,7 +49,7 @@ def parse_words_from_text(text: str) -> list[str]:
     words: list[str] = []
     seen: set[str] = set()
 
-    for raw in re.split(r"[\n,，;；、\t ]+", text):
+    for raw in re.split(r"[\n,，;；、\t]+", text):
         word = _clean_word(raw)
         if not word:
             continue
@@ -88,7 +88,6 @@ def build_placeholder_entries(words: Iterable[str]) -> list[dict[str, object]]:
             "us_phonetic": "",
             "meaning": "",
             "mnemonic": "",
-            "usage": "",
         }
         for index, word in enumerate(words, start=1)
     ]
@@ -97,33 +96,34 @@ def build_placeholder_entries(words: Iterable[str]) -> list[dict[str, object]]:
 def load_entries_from_json(path: Path) -> list[dict[str, object]]:
     raw_json = sys.stdin.read() if str(path) == "-" else path.read_text(encoding="utf-8")
     payload = json.loads(raw_json)
-    source_words: list[str] | None = None
-    if isinstance(payload, dict):
-        if "source_words" in payload:
-            source_words = [_clean_word(str(word)) for word in payload["source_words"]]
-            source_words = [word for word in source_words if word]
-        payload = payload.get("entries", [])
+    if not isinstance(payload, dict):
+        raise RuntimeError("entries JSON 必须是包含 source_words 和 entries 的对象")
+    if "source_words" not in payload or "entries" not in payload:
+        raise RuntimeError("entries JSON 必须同时包含 source_words 和 entries")
+
+    source_words = [_clean_entry_word(str(word)) for word in payload["source_words"]]
+    source_words = [word for word in source_words if word]
+    payload = payload["entries"]
     if not isinstance(payload, list):
-        raise RuntimeError("entries JSON 必须是数组，或包含 entries 数组的对象")
+        raise RuntimeError("entries JSON 的 entries 必须是数组")
 
     entries = []
     for index, item in enumerate(payload, start=1):
         if not isinstance(item, dict):
             raise RuntimeError(f"第 {index} 个词条不是对象")
-        word = _clean_word(str(item.get("word", "")))
+        word = _clean_entry_word(str(item.get("word", "")))
         if not word:
             raise RuntimeError(f"第 {index} 个词条缺少有效 word")
         entries.append(
             {
                 "index": len(entries) + 1,
                 "word": word,
-                "us_phonetic": str(item.get("us_phonetic", "")),
-                "meaning": str(item.get("meaning", "")),
-                "mnemonic": str(item.get("mnemonic", "")),
-                "usage": str(item.get("usage", "")),
+                "us_phonetic": _stringify_optional_text(item.get("us_phonetic")),
+                "meaning": _stringify_optional_text(item.get("meaning")),
+                "mnemonic": _stringify_optional_text(item.get("mnemonic")),
             }
         )
-    if source_words is not None and [entry["word"] for entry in entries] != source_words:
+    if [entry["word"] for entry in entries] != source_words:
         raise RuntimeError("entries JSON 与 source_words 不一致，请检查是否静默改词、漏词或乱序")
     return entries
 
@@ -149,12 +149,12 @@ def write_xlsx(entries: list[dict[str, object]], path: Path) -> None:
                 entry["us_phonetic"],
                 entry["meaning"],
                 entry["mnemonic"],
-                entry["usage"],
+                "",
                 *["" for _ in REVIEW_COLUMNS],
             ]
         )
 
-    widths = [6, 17, 17, 25, 30, 35, 7, 7, 7, 7, 7, 8, 8]
+    widths = [6, 17, 17, 34, 26, 14, 7, 7, 7, 7, 7, 7, 7]
     for column_index, width in enumerate(widths, start=1):
         sheet.column_dimensions[chr(64 + column_index)].width = width
 
@@ -226,14 +226,14 @@ def write_pdf(entries: list[dict[str, object]], path: Path) -> None:
                 Paragraph(str(entry["us_phonetic"]), style),
                 Paragraph(str(entry["meaning"]), style),
                 Paragraph(str(entry["mnemonic"]), style),
-                Paragraph(str(entry["usage"]), style),
+                Paragraph("", style),
                 *[Paragraph("", style) for _ in REVIEW_COLUMNS],
             ]
         )
 
     table = Table(
         data,
-        colWidths=[28, 78, 78, 120, 150, 188, 30, 30, 30, 30, 30, 34, 34],
+        colWidths=[28, 78, 78, 175, 135, 70, 30, 30, 30, 30, 30, 30, 30],
         repeatRows=1,
     )
     table.setStyle(
@@ -328,9 +328,26 @@ def _clean_word(raw: str) -> str:
     word = word.strip(" \r\n\t.:：;；,，、")
     if word.lower() in SKIP_TOKENS:
         return ""
-    if not re.fullmatch(r"[A-Za-z][A-Za-z'-]*", word):
+    if not re.fullmatch(r"[A-Za-z][A-Za-z' -]*", word):
         return ""
-    return word
+    return re.sub(r"\s+", " ", word)
+
+
+def _clean_entry_word(raw: str) -> str:
+    word = re.sub(r"^\s*(?:[-*•]|\d+[.)、])\s*", "", raw).strip()
+    word = re.split(r"[（(【\[]", word, maxsplit=1)[0]
+    word = word.strip(" \r\n\t.:：;；,，、")
+    if word.lower() in SKIP_TOKENS:
+        return ""
+    if not re.fullmatch(r"[A-Za-z][A-Za-z' -]*", word):
+        return ""
+    return re.sub(r"\s+", " ", word)
+
+
+def _stringify_optional_text(value: object | None) -> str:
+    if value is None:
+        return ""
+    return str(value)
 
 
 def _register_pdf_font(pdfmetrics, ttfont_cls, cidfont_cls) -> str:

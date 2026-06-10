@@ -1,6 +1,6 @@
 ---
 name: kaoyan-vocab-sheet
-description: Generate printable Kaoyan English vocabulary review sheets from pasted word lists or txt/csv files, with AI-filled US phonetics, Chinese meanings, mnemonics, Kaoyan collocations/short examples, and A4 PDF output by default; generate XLSX only when explicitly requested.
+description: Generate printable Kaoyan English vocabulary review sheets from pasted word lists or txt/csv files, with AI-filled US phonetics, Chinese meanings, mnemonics, and A4 PDF output by default; generate XLSX only when explicitly requested.
 ---
 
 # Kaoyan Vocab Sheet
@@ -41,9 +41,8 @@ Entries JSON shape:
     {
       "word": "consequence",
       "us_phonetic": "/ˈkɑːnsəkwens/",
-      "meaning": "结果；后果",
-      "mnemonic": "con- + sequence，连续结果",
-      "usage": "as a consequence of the policy"
+      "meaning": "n. 结果；后果",
+      "mnemonic": "con- + sequence，连续结果"
     }
   ]
 }
@@ -54,9 +53,8 @@ Entries JSON shape:
 Content rules:
 
 - `us_phonetic`: US phonetic transcription.
-- `meaning`: concise Simplified Chinese, prioritize Kaoyan common meanings.
+- `meaning`: concise Simplified Chinese with one leading part-of-speech tag such as `n.`/`v.`/`adj.`/`adv.`, prioritize Kaoyan common meanings.
 - `mnemonic`: short mnemonic, root, affix, or association.
-- `usage`: one Kaoyan-relevant collocation or very short example, about 8-12 English words.
 
 Examples:
 
@@ -68,9 +66,8 @@ uv run scripts/vocab_sheet.py --entries-json - <<'JSON'
     {
       "word": "consequence",
       "us_phonetic": "/ˈkɑːnsəkwens/",
-      "meaning": "结果；后果",
-      "mnemonic": "con- + sequence，连续结果",
-      "usage": "as a consequence of the policy"
+      "meaning": "n. 结果；后果",
+      "mnemonic": "con- + sequence，连续结果"
     }
   ]
 }
@@ -87,9 +84,8 @@ uv run scripts/vocab_sheet.py --entries-json - --xlsx <<'JSON'
     {
       "word": "consequence",
       "us_phonetic": "/ˈkɑːnsəkwens/",
-      "meaning": "结果；后果",
-      "mnemonic": "con- + sequence，连续结果",
-      "usage": "as a consequence of the policy"
+      "meaning": "n. 结果；后果",
+      "mnemonic": "con- + sequence，连续结果"
     }
   ]
 }
@@ -106,9 +102,8 @@ uv run scripts/vocab_sheet.py --entries-json - --json <<'JSON'
     {
       "word": "consequence",
       "us_phonetic": "/ˈkɑːnsəkwens/",
-      "meaning": "结果；后果",
-      "mnemonic": "con- + sequence，连续结果",
-      "usage": "as a consequence of the policy"
+      "meaning": "n. 结果；后果",
+      "mnemonic": "con- + sequence，连续结果"
     }
   ]
 }
@@ -138,7 +133,7 @@ YYYY-MM-DD-vocab.xlsx
 The table columns are fixed:
 
 ```text
-序号 | 单词 | 音标(美) | 释义 | 助记 | 考研搭配/短例句 | D0 | D1 | D2 | D4 | D7 | D15 | D30
+序号 | 单词 | 音标(美) | 释义 | 助记 | 笔记 | D0 | D1 | D2 | D4 | D7 | D15 | D30
 ```
 
 ## Report

@@ -55,6 +55,12 @@ class VocabSheetTests(unittest.TestCase):
             ],
         )
 
+    def test_parse_words_from_text_preserves_multiword_entries(self):
+        self.assertEqual(
+            parse_words_from_text("air conditioner, air conditioning"),
+            ["air conditioner", "air conditioning"],
+        )
+
     def test_parse_words_from_csv_reads_all_cells_by_default(self):
         path = Path("tmp_words.csv")
         try:
@@ -83,7 +89,6 @@ class VocabSheetTests(unittest.TestCase):
                     "us_phonetic": "",
                     "meaning": "",
                     "mnemonic": "",
-                    "usage": "",
                 }
             ],
         )
@@ -99,9 +104,8 @@ class VocabSheetTests(unittest.TestCase):
                             {
                                 "word": "consequence",
                                 "us_phonetic": "/ˈkɑːnsəkwens/",
-                                "meaning": "结果；后果",
+                                "meaning": "n. 结果；后果",
                                 "mnemonic": "con- + sequence，连续结果",
-                                "usage": "as a consequence of the policy",
                             }
                         ],
                     },
@@ -117,9 +121,42 @@ class VocabSheetTests(unittest.TestCase):
                         "index": 1,
                         "word": "consequence",
                         "us_phonetic": "/ˈkɑːnsəkwens/",
-                        "meaning": "结果；后果",
+                        "meaning": "n. 结果；后果",
                         "mnemonic": "con- + sequence，连续结果",
-                        "usage": "as a consequence of the policy",
+                    }
+                ],
+            )
+
+    def test_load_entries_from_json_accepts_multiword_entries(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            entries_path = Path(tmpdir) / "entries.json"
+            entries_path.write_text(
+                json.dumps(
+                    {
+                        "source_words": ["air conditioner"],
+                        "entries": [
+                            {
+                                "word": "air conditioner",
+                                "us_phonetic": "/ˈer kənˌdɪʃənər/",
+                                "meaning": "n. 空调",
+                                "mnemonic": "air + conditioner，调节空气的设备",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                load_entries_from_json(entries_path),
+                [
+                    {
+                        "index": 1,
+                        "word": "air conditioner",
+                        "us_phonetic": "/ˈer kənˌdɪʃənər/",
+                        "meaning": "n. 空调",
+                        "mnemonic": "air + conditioner，调节空气的设备",
                     }
                 ],
             )
@@ -141,7 +178,45 @@ class VocabSheetTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "source_words 不一致"):
                 load_entries_from_json(entries_path)
 
-    def test_columns_include_usage_separate_from_mnemonic(self):
+    def test_load_entries_from_json_requires_source_words_object_shape(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            entries_path = Path(tmpdir) / "entries.json"
+            entries_path.write_text(
+                json.dumps([{"word": "title", "meaning": "标题"}], ensure_ascii=False),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "source_words"):
+                load_entries_from_json(entries_path)
+
+    def test_load_entries_from_json_treats_null_fields_as_empty_strings(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            entries_path = Path(tmpdir) / "entries.json"
+            entries_path.write_text(
+                json.dumps(
+                    {
+                        "source_words": ["title"],
+                        "entries": [{"word": "title", "meaning": None}],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                load_entries_from_json(entries_path),
+                [
+                    {
+                        "index": 1,
+                        "word": "title",
+                        "us_phonetic": "",
+                        "meaning": "",
+                        "mnemonic": "",
+                    }
+                ],
+            )
+
+    def test_columns_include_note_column(self):
         self.assertEqual(
             ALL_COLUMNS,
             [
@@ -150,7 +225,7 @@ class VocabSheetTests(unittest.TestCase):
                 "音标(美)",
                 "释义",
                 "助记",
-                "考研搭配/短例句",
+                "笔记",
                 "D0",
                 "D1",
                 "D2",
@@ -209,7 +284,13 @@ class VocabSheetTests(unittest.TestCase):
             entries_path = Path(tmpdir) / "entries.json"
             out_dir = Path(tmpdir) / "out"
             entries_path.write_text(
-                json.dumps([{"word": "bypass", "meaning": "绕过"}], ensure_ascii=False),
+                json.dumps(
+                    {
+                        "source_words": ["bypass"],
+                        "entries": [{"word": "bypass", "meaning": "v. 绕过"}],
+                    },
+                    ensure_ascii=False,
+                ),
                 encoding="utf-8",
             )
 
@@ -232,7 +313,13 @@ class VocabSheetTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             out_dir = Path(tmpdir) / "out"
             stdin = io.StringIO(
-                json.dumps([{"word": "bypass", "meaning": "绕过"}], ensure_ascii=False)
+                json.dumps(
+                    {
+                        "source_words": ["bypass"],
+                        "entries": [{"word": "bypass", "meaning": "v. 绕过"}],
+                    },
+                    ensure_ascii=False,
+                )
             )
 
             with (
