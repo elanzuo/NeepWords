@@ -6,7 +6,7 @@
 
 ## Project Structure & Module Organization
 - `src/word_extractor/main.py` contains the CLI entry point.
-- `pyproject.toml` defines project metadata and the required Python version (>= 3.13).
+- `pyproject.toml` defines project metadata and the required Python version (>= 3.11).
 - `resources/` is intended for input assets (e.g., source PDFs, sample images) and derived artifacts.
 - `tmp.txt` is a scratch file; do not depend on it for production behavior.
 

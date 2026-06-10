@@ -3,7 +3,7 @@ name = "NeepWords"
 version = "0.1.0"
 description = "Local OCR and SQLite tooling for NEEP postgraduate exam vocabulary extraction."
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 keywords = ["neep", "vocabulary", "ocr", "sqlite", "education"]
 classifiers = [
@@ -14,6 +14,8 @@ classifiers = [
     "Operating System :: MacOS",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Education",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -117,7 +119,7 @@ force-single-line = false
 include = ["src"]
 venvPath = "."
 venv = ".venv"
-pythonVersion = "3.13"
+pythonVersion = "3.11"
 typeCheckingMode = "basic"
 
 # 将具体的规则细化

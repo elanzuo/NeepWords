@@ -45,39 +45,37 @@ SKIP_TOKENS = {
 }
 
 
+class ParseWordsResult:
+    def __init__(
+        self, words: list[str], duplicates_removed: list[str], skipped_tokens: list[str]
+    ) -> None:
+        self.words = words
+        self.duplicates_removed = duplicates_removed
+        self.skipped_tokens = skipped_tokens
+
+
 def parse_words_from_text(text: str) -> list[str]:
-    words: list[str] = []
-    seen: set[str] = set()
-
-    for raw in re.split(r"[\n,，;；、\t]+", text):
-        word = _clean_word(raw)
-        if not word:
-            continue
-        key = word.lower()
-        if key not in seen:
-            seen.add(key)
-            words.append(word)
-
-    return words
+    return parse_words_metadata_from_text(text).words
 
 
 def parse_words_from_csv(path: Path) -> list[str]:
-    words: list[str] = []
-    seen: set[str] = set()
+    return parse_words_metadata_from_csv(path).words
 
+
+def parse_words_metadata_from_text(text: str) -> ParseWordsResult:
+    return _parse_words_with_metadata(re.split(r"[\n,，;；、\t]+", text))
+
+
+def parse_words_metadata_from_csv(path: Path) -> ParseWordsResult:
+    tokens: list[str] = []
     with path.open(newline="", encoding="utf-8-sig") as handle:
         reader = csv.reader(handle)
         for row in reader:
             if not row:
                 continue
             for cell in row:
-                for word in parse_words_from_text(cell):
-                    key = word.lower()
-                    if key not in seen:
-                        seen.add(key)
-                        words.append(word)
-
-    return words
+                tokens.extend(re.split(r"[\n,，;；、\t]+", cell))
+    return _parse_words_with_metadata(tokens)
 
 
 def build_placeholder_entries(words: Iterable[str]) -> list[dict[str, object]]:
@@ -91,6 +89,22 @@ def build_placeholder_entries(words: Iterable[str]) -> list[dict[str, object]]:
         }
         for index, word in enumerate(words, start=1)
     ]
+
+
+def build_entries_payload(words: Iterable[str]) -> dict[str, object]:
+    source_words = list(words)
+    return {
+        "source_words": source_words,
+        "entries": [
+            {
+                "word": entry["word"],
+                "us_phonetic": entry["us_phonetic"],
+                "meaning": entry["meaning"],
+                "mnemonic": entry["mnemonic"],
+            }
+            for entry in build_placeholder_entries(source_words)
+        ],
+    }
 
 
 def load_entries_from_json(path: Path) -> list[dict[str, object]]:
@@ -261,7 +275,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
         epilog=(
             "Examples:\n"
             "  uv run scripts/vocab_sheet.py examples/words.txt\n"
-            "  uv run scripts/vocab_sheet.py --entries-json - --xlsx"
+            "  uv run scripts/vocab_sheet.py examples/words.txt --dry-run --json\n"
+            "  uv run scripts/vocab_sheet.py --entries-json - --xlsx\n"
+            "  uv run scripts/vocab_sheet.py --dry-run --json --file-stem 2026-06-03"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -273,17 +289,28 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--paste", action="store_true", help="从标准输入粘贴单词列表")
     parser.add_argument("--entries-json", help="已补全词条 JSON 路径，或用 - 从 stdin 读取")
     parser.add_argument("--out-dir", default="output", help="输出目录，默认 output")
-    parser.add_argument("--date", default=date.today().isoformat(), help="文件名日期，默认今天")
+    parser.add_argument(
+        "--file-stem", default=date.today().isoformat(), help="输出文件名前缀，默认今天日期"
+    )
     parser.add_argument("--xlsx", action="store_true", help="同时生成 xlsx；默认仅生成 pdf")
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 结果")
+    parser.add_argument("--dry-run", action="store_true", help="仅解析并输出结果，不生成文件")
     args = parser.parse_args(argv)
 
     if args.entries_json:
         entries = load_entries_from_json(Path(args.entries_json))
+        duplicates_removed: list[str] = []
+        skipped_tokens: list[str] = []
     elif args.paste:
-        words = parse_words_from_text(sys.stdin.read())
+        parsed = parse_words_metadata_from_text(sys.stdin.read())
+        words = parsed.words
+        duplicates_removed = parsed.duplicates_removed
+        skipped_tokens = parsed.skipped_tokens
     elif args.input:
-        words = load_words_from_path(Path(args.input))
+        parsed = load_words_with_metadata_from_path(Path(args.input))
+        words = parsed.words
+        duplicates_removed = parsed.duplicates_removed
+        skipped_tokens = parsed.skipped_tokens
     else:
         parser.error("请提供 txt/csv 文件，或使用 --paste 从标准输入读取")
 
@@ -295,11 +322,17 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("entries JSON 中没有可用词条")
 
     out_dir = Path(args.out_dir)
-    pdf_path = out_dir / f"{args.date}-vocab.pdf"
-    write_pdf(entries, pdf_path)
-    xlsx_path: Path | None = None
-    if args.xlsx:
-        xlsx_path = out_dir / f"{args.date}-vocab.xlsx"
+    payload = build_entries_payload([str(entry["word"]) for entry in entries])
+    for payload_entry, entry in zip(payload["entries"], entries, strict=False):
+        payload_entry["us_phonetic"] = str(entry["us_phonetic"])
+        payload_entry["meaning"] = str(entry["meaning"])
+        payload_entry["mnemonic"] = str(entry["mnemonic"])
+    pdf_path, xlsx_path = resolve_output_paths(out_dir, args.file_stem, args.xlsx)
+
+    generated = not args.dry_run
+    if generated:
+        write_pdf(entries, pdf_path)
+    if args.xlsx and generated:
         write_xlsx(entries, xlsx_path)
     if args.json:
         print(
@@ -309,23 +342,43 @@ def main(argv: list[str] | None = None) -> int:
                     "pdf_path": str(pdf_path),
                     "xlsx_path": str(xlsx_path) if xlsx_path is not None else None,
                     "entry_count": len(entries),
+                    "source_words": payload["source_words"],
+                    "entries": payload["entries"],
+                    "duplicates_removed": duplicates_removed,
+                    "skipped_tokens": skipped_tokens,
+                    "generated": generated,
                 },
                 ensure_ascii=False,
             )
         )
         return 0
 
-    print(f"已生成: {pdf_path}")
-    if xlsx_path is not None:
-        print(f"已生成: {xlsx_path}")
+    if generated:
+        print(f"已生成: {pdf_path}")
+        if xlsx_path is not None:
+            print(f"已生成: {xlsx_path}")
+    else:
+        print(f"计划生成: {pdf_path}")
+        if xlsx_path is not None:
+            print(f"计划生成: {xlsx_path}")
     print(f"词条数: {len(entries)}")
     return 0
 
 
 def _clean_word(raw: str) -> str:
+    normalized = _normalize_raw_token(raw)
+    if not normalized:
+        return ""
+    return _clean_normalized_word(normalized)
+
+
+def _normalize_raw_token(raw: str) -> str:
     word = re.sub(r"^\s*(?:[-*•]|\d+[.)、])\s*", "", raw).strip()
     word = re.split(r"[（(【\[]", word, maxsplit=1)[0]
-    word = word.strip(" \r\n\t.:：;；,，、")
+    return word.strip(" \r\n\t.:：;；,，、")
+
+
+def _clean_normalized_word(word: str) -> str:
     if word.lower() in SKIP_TOKENS:
         return ""
     if not re.fullmatch(r"[A-Za-z][A-Za-z' -]*", word):
@@ -334,14 +387,10 @@ def _clean_word(raw: str) -> str:
 
 
 def _clean_entry_word(raw: str) -> str:
-    word = re.sub(r"^\s*(?:[-*•]|\d+[.)、])\s*", "", raw).strip()
-    word = re.split(r"[（(【\[]", word, maxsplit=1)[0]
-    word = word.strip(" \r\n\t.:：;；,，、")
-    if word.lower() in SKIP_TOKENS:
+    normalized = _normalize_raw_token(raw)
+    if not normalized:
         return ""
-    if not re.fullmatch(r"[A-Za-z][A-Za-z' -]*", word):
-        return ""
-    return re.sub(r"\s+", " ", word)
+    return _clean_normalized_word(normalized)
 
 
 def _stringify_optional_text(value: object | None) -> str:
@@ -359,6 +408,52 @@ def _register_pdf_font(pdfmetrics, ttfont_cls, cidfont_cls) -> str:
     fallback = "STSong-Light"
     pdfmetrics.registerFont(cidfont_cls(fallback))
     return fallback
+
+
+def resolve_output_paths(out_dir: Path, file_stem: str, include_xlsx: bool) -> tuple[Path, Path | None]:
+    suffix = 1
+    while True:
+        numbered_suffix = "" if suffix == 1 else f"-{suffix}"
+        pdf_path = out_dir / f"{file_stem}-vocab{numbered_suffix}.pdf"
+        xlsx_path = out_dir / f"{file_stem}-vocab{numbered_suffix}.xlsx" if include_xlsx else None
+        if pdf_path.exists() or (xlsx_path is not None and xlsx_path.exists()):
+            suffix += 1
+            continue
+        return pdf_path, xlsx_path
+
+
+def load_words_with_metadata_from_path(path: Path) -> ParseWordsResult:
+    if path.suffix.lower() == ".csv":
+        return parse_words_metadata_from_csv(path)
+    return parse_words_metadata_from_text(path.read_text(encoding="utf-8"))
+
+
+def _parse_words_with_metadata(tokens: Iterable[str]) -> ParseWordsResult:
+    words: list[str] = []
+    duplicates_removed: list[str] = []
+    skipped_tokens: list[str] = []
+    seen: set[str] = set()
+
+    for raw in tokens:
+        normalized = _normalize_raw_token(raw)
+        if not normalized:
+            continue
+        word = _clean_normalized_word(normalized)
+        if not word:
+            skipped_tokens.append(normalized)
+            continue
+        key = word.lower()
+        if key in seen:
+            duplicates_removed.append(normalized)
+            continue
+        seen.add(key)
+        words.append(word)
+
+    return ParseWordsResult(
+        words=words,
+        duplicates_removed=duplicates_removed,
+        skipped_tokens=skipped_tokens,
+    )
 
 
 if __name__ == "__main__":

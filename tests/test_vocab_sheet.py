@@ -23,6 +23,7 @@ SPEC.loader.exec_module(vocab_sheet)
 
 ALL_COLUMNS = vocab_sheet.ALL_COLUMNS
 build_placeholder_entries = vocab_sheet.build_placeholder_entries
+build_entries_payload = vocab_sheet.build_entries_payload
 load_entries_from_json = vocab_sheet.load_entries_from_json
 parse_words_from_csv = vocab_sheet.parse_words_from_csv
 parse_words_from_text = vocab_sheet.parse_words_from_text
@@ -61,6 +62,15 @@ class VocabSheetTests(unittest.TestCase):
             ["air conditioner", "air conditioning"],
         )
 
+    def test_parse_words_metadata_reports_duplicates_and_skipped_tokens(self):
+        result = vocab_sheet.parse_words_metadata_from_text(
+            "bypass, bypass, 123, note, air conditioner, ???, bypass "
+        )
+
+        self.assertEqual(result.words, ["bypass", "air conditioner"])
+        self.assertEqual(result.duplicates_removed, ["bypass", "bypass"])
+        self.assertEqual(result.skipped_tokens, ["123", "note", "???"])
+
     def test_parse_words_from_csv_reads_all_cells_by_default(self):
         path = Path("tmp_words.csv")
         try:
@@ -74,6 +84,23 @@ class VocabSheetTests(unittest.TestCase):
                 parse_words_from_csv(path),
                 ["deceive", "noticeable", "sober", "reign"],
             )
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_parse_words_from_csv_metadata_reports_duplicates_and_skipped_tokens(self):
+        path = Path("tmp_words.csv")
+        try:
+            with path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.writer(handle)
+                writer.writerow(["word", "note"])
+                writer.writerow(["deceive", "123"])
+                writer.writerow(["deceive", "???"])
+
+            result = vocab_sheet.parse_words_metadata_from_csv(path)
+
+            self.assertEqual(result.words, ["deceive"])
+            self.assertEqual(result.duplicates_removed, ["deceive"])
+            self.assertEqual(result.skipped_tokens, ["word", "note", "123", "???"])
         finally:
             path.unlink(missing_ok=True)
 
@@ -91,6 +118,30 @@ class VocabSheetTests(unittest.TestCase):
                     "mnemonic": "",
                 }
             ],
+        )
+
+    def test_build_entries_payload_preserves_word_order_and_schema(self):
+        payload = build_entries_payload(["bypass", "air conditioner"])
+
+        self.assertEqual(
+            payload,
+            {
+                "source_words": ["bypass", "air conditioner"],
+                "entries": [
+                    {
+                        "word": "bypass",
+                        "us_phonetic": "",
+                        "meaning": "",
+                        "mnemonic": "",
+                    },
+                    {
+                        "word": "air conditioner",
+                        "us_phonetic": "",
+                        "meaning": "",
+                        "mnemonic": "",
+                    },
+                ],
+            },
         )
 
     def test_load_entries_from_json_normalizes_print_fields(self):
@@ -247,7 +298,7 @@ class VocabSheetTests(unittest.TestCase):
                 patch.object(vocab_sheet, "write_xlsx") as write_xlsx,
             ):
                 exit_code = vocab_sheet.main(
-                    [str(words_path), "--date", "2026-06-03", "--out-dir", str(out_dir)]
+                    [str(words_path), "--file-stem", "2026-06-03", "--out-dir", str(out_dir)]
                 )
 
             self.assertEqual(exit_code, 0)
@@ -268,7 +319,7 @@ class VocabSheetTests(unittest.TestCase):
                     [
                         str(words_path),
                         "--xlsx",
-                        "--date",
+                        "--file-stem",
                         "2026-06-03",
                         "--out-dir",
                         str(out_dir),
@@ -299,7 +350,7 @@ class VocabSheetTests(unittest.TestCase):
                     [
                         "--entries-json",
                         str(entries_path),
-                        "--date",
+                        "--file-stem",
                         "2026-06-03",
                         "--out-dir",
                         str(out_dir),
@@ -330,7 +381,7 @@ class VocabSheetTests(unittest.TestCase):
                     [
                         "--entries-json",
                         "-",
-                        "--date",
+                        "--file-stem",
                         "2026-06-03",
                         "--out-dir",
                         str(out_dir),
@@ -352,6 +403,18 @@ class VocabSheetTests(unittest.TestCase):
         help_text = stdout.getvalue()
         self.assertIn("uv run scripts/vocab_sheet.py examples/words.txt", help_text)
         self.assertIn("--entries-json - --xlsx", help_text)
+        self.assertIn("--file-stem", help_text)
+        self.assertNotIn("--date", help_text)
+
+    def test_main_rejects_removed_date_argument(self):
+        stderr = io.StringIO()
+
+        with self.assertRaises(SystemExit) as exc_info:
+            with contextlib.redirect_stderr(stderr):
+                vocab_sheet.main(["--date", "2026-06-03"])
+
+        self.assertEqual(exc_info.exception.code, 2)
+        self.assertIn("--date", stderr.getvalue())
 
     def test_main_outputs_json_when_requested(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -370,7 +433,7 @@ class VocabSheetTests(unittest.TestCase):
                         str(words_path),
                         "--xlsx",
                         "--json",
-                        "--date",
+                        "--file-stem",
                         "2026-06-03",
                         "--out-dir",
                         str(out_dir),
@@ -388,8 +451,209 @@ class VocabSheetTests(unittest.TestCase):
                     "pdf_path": str(out_dir / "2026-06-03-vocab.pdf"),
                     "xlsx_path": str(out_dir / "2026-06-03-vocab.xlsx"),
                     "entry_count": 1,
+                    "source_words": ["bypass"],
+                    "entries": [
+                        {
+                            "word": "bypass",
+                            "us_phonetic": "",
+                            "meaning": "",
+                            "mnemonic": "",
+                        }
+                    ],
+                    "duplicates_removed": [],
+                    "skipped_tokens": [],
+                    "generated": True,
                 },
             )
+
+    def test_main_dry_run_outputs_json_without_generating_files(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            words_path = Path(tmpdir) / "words.txt"
+            out_dir = Path(tmpdir) / "out"
+            stdout = io.StringIO()
+            words_path.write_text("bypass, bypass, 123\n", encoding="utf-8")
+
+            with (
+                patch.object(vocab_sheet, "write_pdf") as write_pdf,
+                patch.object(vocab_sheet, "write_xlsx") as write_xlsx,
+                contextlib.redirect_stdout(stdout),
+            ):
+                exit_code = vocab_sheet.main(
+                    [
+                        str(words_path),
+                        "--xlsx",
+                        "--dry-run",
+                        "--json",
+                        "--file-stem",
+                        "2026-06-03-batch2",
+                        "--out-dir",
+                        str(out_dir),
+                    ]
+                )
+
+            self.assertEqual(exit_code, 0)
+            write_pdf.assert_not_called()
+            write_xlsx.assert_not_called()
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(
+                payload,
+                {
+                    "ok": True,
+                    "pdf_path": str(out_dir / "2026-06-03-batch2-vocab.pdf"),
+                    "xlsx_path": str(out_dir / "2026-06-03-batch2-vocab.xlsx"),
+                    "entry_count": 1,
+                    "source_words": ["bypass"],
+                    "entries": [
+                        {
+                            "word": "bypass",
+                            "us_phonetic": "",
+                            "meaning": "",
+                            "mnemonic": "",
+                        }
+                    ],
+                    "duplicates_removed": ["bypass"],
+                    "skipped_tokens": ["123"],
+                    "generated": False,
+                },
+            )
+
+    def test_main_entries_json_outputs_empty_parse_metadata(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            entries_path = Path(tmpdir) / "entries.json"
+            out_dir = Path(tmpdir) / "out"
+            stdout = io.StringIO()
+            entries_path.write_text(
+                json.dumps(
+                    {
+                        "source_words": ["bypass"],
+                        "entries": [{"word": "bypass", "meaning": "v. 绕过"}],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            with (
+                patch.object(vocab_sheet, "write_pdf") as write_pdf,
+                contextlib.redirect_stdout(stdout),
+            ):
+                exit_code = vocab_sheet.main(
+                    [
+                        "--entries-json",
+                        str(entries_path),
+                        "--json",
+                        "--file-stem",
+                        "2026-06-03",
+                        "--out-dir",
+                        str(out_dir),
+                    ]
+                )
+
+            self.assertEqual(exit_code, 0)
+            write_pdf.assert_called_once()
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["duplicates_removed"], [])
+            self.assertEqual(payload["skipped_tokens"], [])
+            self.assertTrue(payload["generated"])
+            self.assertEqual(payload["source_words"], ["bypass"])
+            self.assertEqual(
+                payload["entries"],
+                [
+                    {
+                        "word": "bypass",
+                        "us_phonetic": "",
+                        "meaning": "v. 绕过",
+                        "mnemonic": "",
+                    }
+                ],
+            )
+
+    def test_main_uses_incremented_default_filename_when_output_exists(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            words_path = Path(tmpdir) / "words.txt"
+            out_dir = Path(tmpdir) / "out"
+            words_path.write_text("bypass\n", encoding="utf-8")
+            out_dir.mkdir()
+            (out_dir / "2026-06-03-vocab.pdf").write_text("existing", encoding="utf-8")
+
+            with patch.object(vocab_sheet, "write_pdf") as write_pdf:
+                exit_code = vocab_sheet.main(
+                    [str(words_path), "--file-stem", "2026-06-03", "--out-dir", str(out_dir)]
+                )
+
+            self.assertEqual(exit_code, 0)
+            write_pdf.assert_called_once_with(unittest.mock.ANY, out_dir / "2026-06-03-vocab-2.pdf")
+
+    def test_main_skips_taken_incremented_names_until_free_slot(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            words_path = Path(tmpdir) / "words.txt"
+            out_dir = Path(tmpdir) / "out"
+            words_path.write_text("bypass\n", encoding="utf-8")
+            out_dir.mkdir()
+            (out_dir / "2026-06-03-vocab.pdf").write_text("existing", encoding="utf-8")
+            (out_dir / "2026-06-03-vocab-2.pdf").write_text("existing", encoding="utf-8")
+
+            with patch.object(vocab_sheet, "write_pdf") as write_pdf:
+                exit_code = vocab_sheet.main(
+                    [str(words_path), "--file-stem", "2026-06-03", "--out-dir", str(out_dir)]
+                )
+
+            self.assertEqual(exit_code, 0)
+            write_pdf.assert_called_once_with(unittest.mock.ANY, out_dir / "2026-06-03-vocab-3.pdf")
+
+    def test_main_keeps_pdf_and_xlsx_suffixes_in_sync_when_incrementing(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            words_path = Path(tmpdir) / "words.txt"
+            out_dir = Path(tmpdir) / "out"
+            words_path.write_text("bypass\n", encoding="utf-8")
+            out_dir.mkdir()
+            (out_dir / "custom-vocab.pdf").write_text("existing", encoding="utf-8")
+            (out_dir / "custom-vocab.xlsx").write_text("existing", encoding="utf-8")
+
+            with (
+                patch.object(vocab_sheet, "write_pdf") as write_pdf,
+                patch.object(vocab_sheet, "write_xlsx") as write_xlsx,
+            ):
+                exit_code = vocab_sheet.main(
+                    [
+                        str(words_path),
+                        "--xlsx",
+                        "--file-stem",
+                        "custom",
+                        "--out-dir",
+                        str(out_dir),
+                    ]
+                )
+
+            self.assertEqual(exit_code, 0)
+            write_pdf.assert_called_once_with(unittest.mock.ANY, out_dir / "custom-vocab-2.pdf")
+            write_xlsx.assert_called_once_with(unittest.mock.ANY, out_dir / "custom-vocab-2.xlsx")
+
+    def test_main_json_reports_incremented_paths_in_dry_run(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            words_path = Path(tmpdir) / "words.txt"
+            out_dir = Path(tmpdir) / "out"
+            stdout = io.StringIO()
+            words_path.write_text("bypass\n", encoding="utf-8")
+            out_dir.mkdir()
+            (out_dir / "2026-06-03-vocab.pdf").write_text("existing", encoding="utf-8")
+
+            with contextlib.redirect_stdout(stdout):
+                exit_code = vocab_sheet.main(
+                    [
+                        str(words_path),
+                        "--dry-run",
+                        "--json",
+                        "--file-stem",
+                        "2026-06-03",
+                        "--out-dir",
+                        str(out_dir),
+                    ]
+                )
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["pdf_path"], str(out_dir / "2026-06-03-vocab-2.pdf"))
 
 
 if __name__ == "__main__":

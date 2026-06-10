@@ -27,10 +27,10 @@ uv run scripts/vocab_sheet.py
 2. Normalize only separators, numbering, bullets, and bracketed Chinese notes such as `transition（过渡）`.
 3. Do not silently correct spelling. If a token looks wrong, for example `tifle` or `demmand`, stop and ask the user whether to keep or correct it. If unsure how to fix an error, ask the user to decide.
 4. Deduplicate exact normalized duplicates, and report which duplicates were removed.
-5. Use the current Codex model, not `OPENAI_API_KEY`, to produce entries JSON with the fixed fields below.
-6. Pipe the entries JSON to the local CLI with `--entries-json -`; do not leave an intermediate JSON file unless the user explicitly asks for one.
-7. Return the generated PDF path to the user. Only generate and return XLSX when the user explicitly asks for XLSX/Excel.
-8. When the result will be consumed by another tool step, prefer `--json` so the output is machine-readable.
+5. First run the local CLI on the raw word list with `--dry-run --json` to get the normalized `source_words`, placeholder `entries`, duplicates removed, skipped tokens, and the resolved output paths.
+6. Use the current Codex model, not `OPENAI_API_KEY`, to fill the placeholder `entries` fields while keeping `entries[*].word` exactly aligned with `source_words`.
+7. Pipe the completed entries JSON to the same CLI with `--entries-json -`; do not leave an intermediate JSON file unless the user explicitly asks for one.
+8. Return the generated PDF path to the user. Only generate and return XLSX when the user explicitly asks for XLSX/Excel.
 
 Entries JSON shape:
 
@@ -92,22 +92,10 @@ uv run scripts/vocab_sheet.py --entries-json - --xlsx <<'JSON'
 JSON
 ```
 
-Generate machine-readable output:
+Generate machine-readable output from a raw word list:
 
 ```bash
-uv run scripts/vocab_sheet.py --entries-json - --json <<'JSON'
-{
-  "source_words": ["consequence"],
-  "entries": [
-    {
-      "word": "consequence",
-      "us_phonetic": "/ˈkɑːnsəkwens/",
-      "meaning": "n. 结果；后果",
-      "mnemonic": "con- + sequence，连续结果"
-    }
-  ]
-}
-JSON
+uv run scripts/vocab_sheet.py examples/words.txt --dry-run --json
 ```
 
 For a blank parsing/layout check only:
@@ -122,6 +110,13 @@ Files are written to `output/` by default. PDF is the default output:
 
 ```text
 YYYY-MM-DD-vocab.pdf
+```
+
+If that file already exists, the CLI automatically increments the suffix without overwriting:
+
+```text
+YYYY-MM-DD-vocab-2.pdf
+YYYY-MM-DD-vocab-3.pdf
 ```
 
 If `--xlsx` is passed, this file is also written:
@@ -165,3 +160,10 @@ Verify:
 ```bash
 uv run scripts/vocab_sheet.py examples/words.txt
 ```
+
+## CLI Notes
+
+- Use `--file-stem` to control the output filename prefix. The default is today's date, so the default PDF path is `output/YYYY-MM-DD-vocab.pdf`.
+- Existing output files are never overwritten. If the chosen PDF/XLSX name already exists, the CLI increments the filename suffix and returns the resolved path.
+- `--json` still generates files unless `--dry-run` is also passed.
+- `--dry-run --json` returns machine-readable fields including `source_words`, `entries`, `pdf_path`, `xlsx_path`, `entry_count`, `duplicates_removed`, `skipped_tokens`, and `generated`.

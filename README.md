@@ -1,7 +1,7 @@
 # NeepWords
 
 <p align="center">
-  <img src="https://img.shields.io/badge/python-3.13%2B-blue" alt="Python Version">
+  <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/package%20manager-uv-purple" alt="Package Manager">
   <img src="https://img.shields.io/badge/skills-cross--platform-lightgrey" alt="Skills Platform">
@@ -33,7 +33,7 @@ NeepWords/
 
 ## ⚡ 快速上手：开箱即用的本地 Skills
 
-本项目内置了包含 2026 考研大纲词汇的示例数据库。运行本地 Skill **不需要** macOS 系统，只要系统安装了 Python `>=3.13` 和 [uv](https://github.com/astral-sh/uv) 即可。
+本项目内置了包含 2026 考研大纲词汇的示例数据库。运行本地 Skill **不需要** macOS 系统，只要系统安装了 Python `>=3.11` 和 [uv](https://github.com/astral-sh/uv) 即可。
 
 > [!TIP]
 > **没有安装 `uv`？**
