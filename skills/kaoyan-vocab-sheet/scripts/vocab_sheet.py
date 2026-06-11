@@ -247,7 +247,7 @@ def write_pdf(entries: list[dict[str, object]], path: Path) -> None:
 
     table = Table(
         data,
-        colWidths=[28, 78, 78, 175, 135, 70, 30, 30, 30, 30, 30, 30, 30],
+        colWidths=[28, 75, 75, 151, 135, 114, 28, 28, 28, 28, 28, 28, 28],
         repeatRows=1,
     )
     table.setStyle(
@@ -260,6 +260,7 @@ def write_pdf(entries: list[dict[str, object]], path: Path) -> None:
             ]
         )
     )
+
     doc.build([table])
 
 
